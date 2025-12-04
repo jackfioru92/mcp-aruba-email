@@ -1,6 +1,6 @@
-# MCP Aruba Email Server
+# MCP Aruba Email & Calendar Server
 
-MCP (Model Context Protocol) server for accessing Aruba email accounts via IMAP/SMTP. Seamlessly integrate your Aruba email with AI assistants like Claude!
+MCP (Model Context Protocol) server for accessing Aruba email and calendar via IMAP/SMTP/CalDAV. Seamlessly integrate your Aruba email and calendar with AI assistants like Claude!
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -8,11 +8,22 @@ MCP (Model Context Protocol) server for accessing Aruba email accounts via IMAP/
 
 ## Features
 
+### Email
 - 📧 **List emails** - Browse inbox with optional sender filtering
 - 🔍 **Search emails** - Search by subject/body with date filters
 - 📖 **Read emails** - Get full email content
 - ✉️ **Send emails** - Send emails via SMTP with custom formatting
-- 🔒 **Secure** - Uses IMAP/SMTP over SSL/TLS
+
+### Calendar
+- 📅 **Create events** - Create calendar events with attendees
+- 📋 **List events** - View upcoming events
+- ✅ **Accept invitations** - Accept calendar invitations
+- ❌ **Decline invitations** - Decline calendar invitations
+- ❓ **Tentative response** - Mark as maybe attending
+- 🗑️ **Delete events** - Remove events from calendar
+
+### General
+- 🔒 **Secure** - Uses IMAP/SMTP/CalDAV over SSL/TLS
 - ⚡ **Fast** - Efficient connection handling with context managers
 - 🤖 **AI-Ready** - Works seamlessly with Claude Desktop and other MCP clients
 
@@ -39,10 +50,19 @@ cp .env.example .env
 
 2. Edit `.env` with your Aruba credentials:
 ```env
+# Email configuration
 IMAP_HOST=imaps.aruba.it
 IMAP_PORT=993
 IMAP_USERNAME=your_email@aruba.it
 IMAP_PASSWORD=your_password_here
+
+SMTP_HOST=smtps.aruba.it
+SMTP_PORT=465
+
+# Calendar configuration
+CALDAV_URL=https://caldav.aruba.it
+CALDAV_USERNAME=your_email@aruba.it
+CALDAV_PASSWORD=your_password_here
 ```
 
 > **Note**: Your credentials are stored locally and never leave your machine. The MCP server runs locally and connects directly to Aruba's servers.
@@ -62,7 +82,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "aruba-email": {
+    "aruba-email-calendar": {
       "command": "python",
       "args": [
         "-m",
@@ -72,9 +92,21 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
         "IMAP_HOST": "imaps.aruba.it",
         "IMAP_PORT": "993",
         "IMAP_USERNAME": "your_email@aruba.it",
-        "IMAP_PASSWORD": "your_password_here"
+        "IMAP_PASSWORD": "your_password_here",
+        "SMTP_HOST": "smtps.aruba.it",
+        "SMTP_PORT": "465",
+        "CALDAV_URL": "https://caldav.aruba.it",
+        "CALDAV_USERNAME": "your_email@aruba.it",
+        "CALDAV_PASSWORD": "your_password_here"
       }
     }
+  }
+}
+```
+
+## Available Tools
+
+### Email Tools
 ### `list_emails`
 List recent emails with optional filtering.
 
@@ -122,6 +154,139 @@ Show me the full content of email 456
 ```python
 email = client.read_email(email_id="123")
 print(f"Subject: {email['subject']}")
+```
+
+### Calendar Tools
+
+### `create_calendar_event`
+Create a new calendar event with optional attendees.
+
+**Parameters:**
+- `summary` (str) - Event title
+- `start` (str) - Start datetime in ISO format (YYYY-MM-DDTHH:MM:SS)
+- `end` (str) - End datetime in ISO format
+- `description` (str, optional) - Event description
+- `location` (str, optional) - Event location
+- `attendees` (str, optional) - Comma-separated list of attendee emails
+
+**Returns:** Created event details including UID
+
+**Examples:**
+```
+Create a meeting called "Team Standup" tomorrow at 10am for 1 hour
+Schedule a "Project Review" event on December 10th at 2pm with john@example.com
+```
+
+**Python usage:**
+```python
+from mcp_aruba.calendar_client import ArubaCalendarClient
+from datetime import datetime, timedelta
+
+with ArubaCalendarClient(url="https://caldav.aruba.it",
+                         username="you@aruba.it", password="***") as client:
+    result = client.create_event(
+        summary="Team Meeting",
+        start=datetime.now() + timedelta(days=1),
+        end=datetime.now() + timedelta(days=1, hours=1),
+        description="Discuss quarterly goals",
+        location="Conference Room A",
+        attendees=["colleague@example.com"]
+    )
+    print(f"Event created: {result['uid']}")
+```
+
+### `list_calendar_events`
+List calendar events within a date range.
+
+**Parameters:**
+- `start_date` (str, optional) - Start date in ISO format (default: today)
+- `end_date` (str, optional) - End date in ISO format (default: 30 days from now)
+- `limit` (int, default: 50) - Maximum events to return
+
+**Returns:** List of calendar events with details
+
+**Examples:**
+```
+Show me my calendar for this week
+What events do I have in December?
+List all my meetings for the next 7 days
+```
+
+**Python usage:**
+```python
+events = client.list_events(limit=10)
+for event in events:
+    print(f"{event['start']}: {event['summary']}")
+```
+
+### `accept_calendar_event`
+Accept a calendar event invitation.
+
+**Parameters:**
+- `event_uid` (str) - UID of the event
+- `comment` (str, optional) - Optional comment
+
+**Returns:** Response status
+
+**Examples:**
+```
+Accept the meeting invitation for "Team Standup"
+Accept event abc123@aruba.it with comment "Looking forward to it!"
+```
+
+**Python usage:**
+```python
+result = client.respond_to_event(
+    event_uid="event123@aruba.it",
+    response="ACCEPTED",
+    comment="Ci sarò!"
+)
+```
+
+### `decline_calendar_event`
+Decline a calendar event invitation.
+
+**Parameters:**
+- `event_uid` (str) - UID of the event
+- `comment` (str, optional) - Optional comment
+
+**Returns:** Response status
+
+**Examples:**
+```
+Decline the event abc123@aruba.it
+Decline meeting with comment "Sorry, I have a conflict"
+```
+
+### `tentative_calendar_event`
+Mark attendance as tentative (maybe).
+
+**Parameters:**
+- `event_uid` (str) - UID of the event
+- `comment` (str, optional) - Optional comment
+
+**Returns:** Response status
+
+**Examples:**
+```
+Mark event abc123@aruba.it as tentative
+Maybe attend the meeting tomorrow
+```
+
+### `delete_calendar_event`
+Delete a calendar event.
+
+**Parameters:**
+- `event_uid` (str) - UID of the event to delete
+
+**Returns:** Deletion status
+
+**Examples:**
+```
+Delete event abc123@aruba.it
+Cancel my 2pm meeting
+```
+
 ## Use Cases
 
 ### 📬 Team Communication
@@ -148,12 +313,23 @@ Send an email to colleague@example.com thanking them for the update
 Reply to john@example.com with the project status
 ```
 
-### 🤖 AI-Powered Email Management
+### 📅 Calendar Management
+```
+What meetings do I have this week?
+Create a team meeting for tomorrow at 3pm
+Accept the calendar invitation for Friday's review
+Decline the Monday morning meeting with a note that I'm on vacation
+Show me my schedule for next week
+```
+
+### 🤖 AI-Powered Email & Calendar Management
 With Claude Desktop, you can:
 - Ask Claude to summarize multiple emails
 - Draft responses based on email content
 - Extract action items from email threads
 - Organize and categorize emails automatically
+- Schedule meetings based on email conversations
+- Manage calendar conflicts and find available time slots
 ## Tech Stack
 
 - **Python 3.10+** - Modern Python
@@ -161,12 +337,14 @@ With Claude Desktop, you can:
 - **imaplib** - Standard library IMAP client (SSL/TLS support)
 - **smtplib** - Standard library SMTP client (SSL/TLS support)
 - **email** - Email parsing and MIME handling
+- **caldav** - CalDAV protocol for calendar access
+- **icalendar** - iCalendar format parsing and generation
 - **python-dotenv** - Environment variable management
 
 ## Security & Privacy
 
 - 🔒 **Local execution** - Server runs on your machine, credentials never leave your computer
-- 🛡️ **SSL/TLS encryption** - All connections use secure protocols (IMAPS port 993, SMTPS port 465)
+- 🛡️ **SSL/TLS encryption** - All connections use secure protocols (IMAPS port 993, SMTPS port 465, HTTPS for CalDAV)
 - 🔐 **Environment variables** - Credentials stored in `.env` file (gitignored by default)
 - 📝 **Body truncation** - Email body limited to 5000 chars to prevent context overflow
 - ✅ **No external services** - Direct connection to Aruba servers only
@@ -197,8 +375,11 @@ Send an email via SMTP.
 # Activate virtual environment
 source .venv/bin/activate
 
-# Run connection test
+# Run email connection test
 python test_connection.py
+
+# Run calendar connection test
+python test_calendar.py
 
 # Test individual functions
 python -c "

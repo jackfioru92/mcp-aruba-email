@@ -1,12 +1,14 @@
-"""MCP server for Aruba email access via IMAP."""
+"""MCP server for Aruba email and calendar access via IMAP and CalDAV."""
 
 import os
 import logging
 from typing import Any
+from datetime import datetime
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
 from .email_client import ArubaEmailClient
+from .calendar_client import ArubaCalendarClient
 
 # Load environment variables
 load_dotenv()
@@ -30,6 +32,13 @@ IMAP_CONFIG = {
     "password": os.getenv("IMAP_PASSWORD", ""),
 }
 
+# Calendar client configuration
+CALDAV_CONFIG = {
+    "url": os.getenv("CALDAV_URL", "https://syncdav.aruba.it/calendars/user@domain.com/"),
+    "username": os.getenv("CALDAV_USERNAME", os.getenv("IMAP_USERNAME", "")),
+    "password": os.getenv("CALDAV_PASSWORD", os.getenv("IMAP_PASSWORD", "")),
+}
+
 
 def _get_email_client() -> ArubaEmailClient:
     """Create and return email client instance."""
@@ -43,6 +52,18 @@ def _get_email_client() -> ArubaEmailClient:
         password=IMAP_CONFIG["password"],
         smtp_host="smtps.aruba.it",
         smtp_port=465
+    )
+
+
+def _get_calendar_client() -> ArubaCalendarClient:
+    """Create and return calendar client instance."""
+    if not CALDAV_CONFIG["username"] or not CALDAV_CONFIG["password"]:
+        raise ValueError("CalDAV credentials not configured. Set CALDAV_USERNAME and CALDAV_PASSWORD environment variables.")
+    
+    return ArubaCalendarClient(
+        url=CALDAV_CONFIG["url"],
+        username=CALDAV_CONFIG["username"],
+        password=CALDAV_CONFIG["password"]
     )
 
 
@@ -184,10 +205,245 @@ def send_email(
         return {"error": str(e), "status": "failed"}
 
 
+# ============================================================================
+# CALENDAR TOOLS
+# ============================================================================
+
+@mcp.tool()
+def create_calendar_event(
+    summary: str,
+    start: str,
+    end: str,
+    description: str | None = None,
+    location: str | None = None,
+    attendees: str | None = None
+) -> dict[str, Any]:
+    """Create a new calendar event.
+    
+    Args:
+        summary: Event title
+        start: Start datetime in ISO format (e.g., "2025-12-05T10:00:00")
+        end: End datetime in ISO format (e.g., "2025-12-05T11:00:00")
+        description: Event description (optional)
+        location: Event location (optional)
+        attendees: Comma-separated list of attendee email addresses (optional)
+    
+    Returns:
+        Created event details including UID
+    
+    Example:
+        create_calendar_event(
+            summary="Team Meeting",
+            start="2025-12-05T10:00:00",
+            end="2025-12-05T11:00:00",
+            description="Discussione sui nuovi progetti",
+            location="Sala Riunioni A",
+            attendees="christopher.caponi@emotion-team.com,marco.rossi@example.com"
+        )
+    """
+    try:
+        # Parse datetime strings
+        start_dt = datetime.fromisoformat(start)
+        end_dt = datetime.fromisoformat(end)
+        
+        # Parse attendees
+        attendee_list = None
+        if attendees:
+            attendee_list = [email.strip() for email in attendees.split(",") if email.strip()]
+        
+        with _get_calendar_client() as client:
+            result = client.create_event(
+                summary=summary,
+                start=start_dt,
+                end=end_dt,
+                description=description,
+                location=location,
+                attendees=attendee_list
+            )
+            logger.info(f"Created calendar event: {summary}")
+            return result
+    except ValueError as e:
+        logger.error(f"Invalid datetime format: {e}")
+        return {"error": f"Invalid datetime format. Use ISO format (YYYY-MM-DDTHH:MM:SS): {str(e)}"}
+    except Exception as e:
+        logger.error(f"Error creating calendar event: {e}")
+        return {"error": str(e), "success": False}
+
+
+@mcp.tool()
+def list_calendar_events(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    limit: int = 50
+) -> list[dict[str, Any]]:
+    """List calendar events within a date range.
+    
+    Args:
+        start_date: Start date in ISO format (default: today)
+        end_date: End date in ISO format (default: 30 days from now)
+        limit: Maximum number of events to return (default: 50)
+    
+    Returns:
+        List of calendar events
+    
+    Example:
+        list_calendar_events(
+            start_date="2025-12-01T00:00:00",
+            end_date="2025-12-31T23:59:59",
+            limit=20
+        )
+    """
+    try:
+        # Parse dates if provided
+        start_dt = datetime.fromisoformat(start_date) if start_date else None
+        end_dt = datetime.fromisoformat(end_date) if end_date else None
+        
+        with _get_calendar_client() as client:
+            events = client.list_events(
+                start_date=start_dt,
+                end_date=end_dt,
+                limit=limit
+            )
+            logger.info(f"Listed {len(events)} calendar events")
+            return events
+    except ValueError as e:
+        logger.error(f"Invalid datetime format: {e}")
+        return [{"error": f"Invalid datetime format. Use ISO format (YYYY-MM-DDTHH:MM:SS): {str(e)}"}]
+    except Exception as e:
+        logger.error(f"Error listing calendar events: {e}")
+        return [{"error": str(e)}]
+
+
+@mcp.tool()
+def accept_calendar_event(
+    event_uid: str,
+    comment: str | None = None
+) -> dict[str, Any]:
+    """Accept a calendar event invitation.
+    
+    Args:
+        event_uid: UID of the event to accept
+        comment: Optional comment for the acceptance
+    
+    Returns:
+        Response status
+    
+    Example:
+        accept_calendar_event(
+            event_uid="abc123@aruba.it",
+            comment="Ci sarò!"
+        )
+    """
+    try:
+        with _get_calendar_client() as client:
+            result = client.respond_to_event(
+                event_uid=event_uid,
+                response="ACCEPTED",
+                comment=comment
+            )
+            logger.info(f"Accepted calendar event: {event_uid}")
+            return result
+    except Exception as e:
+        logger.error(f"Error accepting calendar event: {e}")
+        return {"error": str(e), "success": False}
+
+
+@mcp.tool()
+def decline_calendar_event(
+    event_uid: str,
+    comment: str | None = None
+) -> dict[str, Any]:
+    """Decline a calendar event invitation.
+    
+    Args:
+        event_uid: UID of the event to decline
+        comment: Optional comment for the decline
+    
+    Returns:
+        Response status
+    
+    Example:
+        decline_calendar_event(
+            event_uid="abc123@aruba.it",
+            comment="Purtroppo non posso partecipare"
+        )
+    """
+    try:
+        with _get_calendar_client() as client:
+            result = client.respond_to_event(
+                event_uid=event_uid,
+                response="DECLINED",
+                comment=comment
+            )
+            logger.info(f"Declined calendar event: {event_uid}")
+            return result
+    except Exception as e:
+        logger.error(f"Error declining calendar event: {e}")
+        return {"error": str(e), "success": False}
+
+
+@mcp.tool()
+def tentative_calendar_event(
+    event_uid: str,
+    comment: str | None = None
+) -> dict[str, Any]:
+    """Mark a calendar event as tentative (maybe attending).
+    
+    Args:
+        event_uid: UID of the event
+        comment: Optional comment
+    
+    Returns:
+        Response status
+    
+    Example:
+        tentative_calendar_event(
+            event_uid="abc123@aruba.it",
+            comment="Forse riesco a partecipare"
+        )
+    """
+    try:
+        with _get_calendar_client() as client:
+            result = client.respond_to_event(
+                event_uid=event_uid,
+                response="TENTATIVE",
+                comment=comment
+            )
+            logger.info(f"Marked calendar event as tentative: {event_uid}")
+            return result
+    except Exception as e:
+        logger.error(f"Error updating calendar event: {e}")
+        return {"error": str(e), "success": False}
+
+
+@mcp.tool()
+def delete_calendar_event(event_uid: str) -> dict[str, Any]:
+    """Delete a calendar event.
+    
+    Args:
+        event_uid: UID of the event to delete
+    
+    Returns:
+        Deletion status
+    
+    Example:
+        delete_calendar_event(event_uid="abc123@aruba.it")
+    """
+    try:
+        with _get_calendar_client() as client:
+            result = client.delete_event(event_uid=event_uid)
+            logger.info(f"Deleted calendar event: {event_uid}")
+            return result
+    except Exception as e:
+        logger.error(f"Error deleting calendar event: {e}")
+        return {"error": str(e), "success": False}
+
+
 def main():
     """Run the MCP server."""
-    logger.info("Starting Aruba Email MCP Server")
-    logger.info(f"Configured for: {IMAP_CONFIG['username']}@{IMAP_CONFIG['host']}")
+    logger.info("Starting Aruba Email & Calendar MCP Server")
+    logger.info(f"Email configured for: {IMAP_CONFIG['username']}@{IMAP_CONFIG['host']}")
+    logger.info(f"Calendar configured for: {CALDAV_CONFIG['url']}")
     mcp.run(transport='stdio')
 
 

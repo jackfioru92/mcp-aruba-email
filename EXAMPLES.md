@@ -1,6 +1,6 @@
-# MCP Aruba Email Server - Examples
+# MCP Aruba Email & Calendar Server - Examples
 
-This document provides comprehensive examples for using the MCP Aruba Email Server.
+This document provides comprehensive examples for using the MCP Aruba Email & Calendar Server.
 
 ## Table of Contents
 
@@ -8,6 +8,7 @@ This document provides comprehensive examples for using the MCP Aruba Email Serv
 - [Reading Emails](#reading-emails)
 - [Searching Emails](#searching-emails)
 - [Sending Emails](#sending-emails)
+- [Calendar Management](#calendar-management)
 - [Advanced Usage](#advanced-usage)
 - [Claude Desktop Examples](#claude-desktop-examples)
 
@@ -202,6 +203,195 @@ with ArubaEmailClient(...) as client:
         print(f"Sent to {recipient}: {result['status']}")
 ```
 
+## Calendar Management
+
+### Basic Calendar Setup
+
+```python
+from mcp_aruba.calendar_client import ArubaCalendarClient
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
+
+# Create calendar client
+client = ArubaCalendarClient(
+    url=os.getenv('CALDAV_URL'),
+    username=os.getenv('CALDAV_USERNAME'),
+    password=os.getenv('CALDAV_PASSWORD')
+)
+```
+
+### Create a Simple Event
+
+```python
+from datetime import datetime, timedelta
+
+with ArubaCalendarClient(...) as client:
+    # Create event for tomorrow at 2pm
+    start_time = datetime.now().replace(hour=14, minute=0, second=0) + timedelta(days=1)
+    end_time = start_time + timedelta(hours=1)
+    
+    result = client.create_event(
+        summary="Team Meeting",
+        start=start_time,
+        end=end_time,
+        description="Weekly team sync",
+        location="Conference Room A"
+    )
+    
+    print(f"Event created with UID: {result['uid']}")
+```
+
+### Create Event with Attendees
+
+```python
+with ArubaCalendarClient(...) as client:
+    start = datetime(2025, 12, 10, 15, 0)  # Dec 10, 2025, 3:00 PM
+    end = datetime(2025, 12, 10, 16, 30)   # Dec 10, 2025, 4:30 PM
+    
+    result = client.create_event(
+        summary="Project Review Meeting",
+        start=start,
+        end=end,
+        description="Q4 project review and planning for Q1",
+        location="Virtual - Zoom Link: https://zoom.us/j/123456789",
+        attendees=[
+            "john.doe@example.com",
+            "jane.smith@example.com",
+            "manager@example.com"
+        ]
+    )
+    
+    print(f"Meeting scheduled: {result['summary']}")
+    print(f"Start: {result['start']}")
+    print(f"Attendees notified")
+```
+
+### List Upcoming Events
+
+```python
+from datetime import datetime, timedelta
+
+with ArubaCalendarClient(...) as client:
+    # Get events for the next week
+    start_date = datetime.now()
+    end_date = datetime.now() + timedelta(days=7)
+    
+    events = client.list_events(
+        start_date=start_date,
+        end_date=end_date,
+        limit=20
+    )
+    
+    print(f"You have {len(events)} events this week:\n")
+    for event in events:
+        print(f"- {event['start']}: {event['summary']}")
+        if event.get('location'):
+            print(f"  Location: {event['location']}")
+        if event.get('attendees'):
+            print(f"  Attendees: {len(event['attendees'])}")
+        print()
+```
+
+### Accept a Calendar Invitation
+
+```python
+with ArubaCalendarClient(...) as client:
+    # Get pending events
+    events = client.list_events(limit=10)
+    
+    for event in events:
+        # Check if you're an attendee and haven't responded
+        for attendee in event.get('attendees', []):
+            if attendee['email'] == os.getenv('CALDAV_USERNAME'):
+                if attendee['status'] == 'NEEDS-ACTION':
+                    print(f"Pending invitation: {event['summary']}")
+                    
+                    # Accept the invitation
+                    result = client.respond_to_event(
+                        event_uid=event['uid'],
+                        response='ACCEPTED',
+                        comment="Looking forward to it!"
+                    )
+                    
+                    if result['success']:
+                        print(f"✓ Accepted: {event['summary']}")
+```
+
+### Decline an Event
+
+```python
+with ArubaCalendarClient(...) as client:
+    # Decline a specific event
+    result = client.respond_to_event(
+        event_uid="event123@aruba.it",
+        response='DECLINED',
+        comment="Sorry, I have a scheduling conflict"
+    )
+    
+    if result['success']:
+        print("Event declined successfully")
+```
+
+### Mark as Tentative
+
+```python
+with ArubaCalendarClient(...) as client:
+    result = client.respond_to_event(
+        event_uid="event123@aruba.it",
+        response='TENTATIVE',
+        comment="I might be able to attend, will confirm later"
+    )
+```
+
+### Delete an Event
+
+```python
+with ArubaCalendarClient(...) as client:
+    result = client.delete_event(event_uid="event123@aruba.it")
+    
+    if result['success']:
+        print("Event deleted successfully")
+```
+
+### Weekly Calendar Summary
+
+```python
+from datetime import datetime, timedelta
+
+with ArubaCalendarClient(...) as client:
+    # Get this week's events
+    start = datetime.now().replace(hour=0, minute=0, second=0)
+    end = start + timedelta(days=7)
+    
+    events = client.list_events(start_date=start, end_date=end)
+    
+    # Group by day
+    days = {}
+    for event in events:
+        event_date = datetime.fromisoformat(event['start']).date()
+        day_name = event_date.strftime('%A, %B %d')
+        
+        if day_name not in days:
+            days[day_name] = []
+        days[day_name].append(event)
+    
+    # Print summary
+    print("📅 This Week's Schedule\n")
+    for day, day_events in sorted(days.items()):
+        print(f"{day}")
+        print("-" * 40)
+        for event in day_events:
+            start_time = datetime.fromisoformat(event['start']).strftime('%I:%M %p')
+            print(f"  {start_time} - {event['summary']}")
+            if event.get('location'):
+                print(f"           📍 {event['location']}")
+        print()
+```
+
 ## Advanced Usage
 
 ### Email Summary Report
@@ -358,18 +548,50 @@ with ArubaEmailClient(...) as client:
 ## Best Practices
 
 1. **Always use context managers** - Ensures connections are properly closed
-2. **Set reasonable limits** - Don't fetch more emails than you need
+2. **Set reasonable limits** - Don't fetch more emails/events than you need
 3. **Handle errors gracefully** - Network issues can happen
-4. **Cache results when possible** - Avoid repeated IMAP queries
+4. **Cache results when possible** - Avoid repeated IMAP/CalDAV queries
 5. **Use sender filters** - More efficient than searching all emails
 6. **Respect rate limits** - Don't spam the server with requests
+7. **Use ISO format for dates** - Consistent datetime formatting prevents errors
+8. **Validate event UIDs** - Check event exists before responding/deleting
+
+## Claude Desktop Usage Examples
+
+Once configured in Claude Desktop, you can use natural language:
+
+### Email Examples
+```
+"Show me the last 5 emails from john@example.com"
+"Search for emails about 'project alpha' from last week"
+"Send an email to team@company.com with subject 'Meeting Notes'"
+"Summarize my emails from today"
+```
+
+### Calendar Examples
+```
+"What's on my calendar this week?"
+"Create a team meeting for tomorrow at 2pm with john@example.com and jane@example.com"
+"Accept the calendar invitation for Friday's review"
+"Decline the Monday meeting, I'm on vacation"
+"Show me all meetings with Christopher this month"
+"Schedule a 1-hour meeting called 'Project Kickoff' for December 10th at 3pm in Conference Room A"
+```
+
+### Combined Workflows
+```
+"Check my calendar for conflicts and then send an email to propose alternative meeting times"
+"Find emails about the Q4 review and schedule a follow-up meeting"
+"List my meetings for next week and send a summary email to my team"
+```
 
 ## More Examples
 
 For more examples and use cases, check:
 - [README.md](README.md) - Main documentation
 - [CLAUDE_SETUP.md](CLAUDE_SETUP.md) - Claude Desktop integration
-- [test_connection.py](test_connection.py) - Test script with examples
+- [test_connection.py](test_connection.py) - Email test script with examples
+- [test_calendar.py](test_calendar.py) - Calendar test script with examples
 
 ## Contributing
 
