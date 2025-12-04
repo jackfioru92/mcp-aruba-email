@@ -77,7 +77,9 @@ python -m mcp_aruba.server
 
 ### Configure with Claude Desktop
 
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+See [CLAUDE_SETUP.md](CLAUDE_SETUP.md) for detailed instructions.
+
+Quick config for `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -103,6 +105,10 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   }
 }
 ```
+
+### Configure with VS Code Copilot
+
+See [VSCODE_SETUP.md](VSCODE_SETUP.md) for detailed instructions on using this server with VS Code's Copilot MCP extension.
 
 ## Available Tools
 
