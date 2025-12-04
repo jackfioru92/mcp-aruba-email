@@ -6,7 +6,7 @@ Server MCP (Model Context Protocol) per accedere a email e calendario Aruba tram
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-1.2.0+-green.svg)](https://modelcontextprotocol.io/)
 
-[English](README.md) | **Italiano**
+**Italiano** | [English](README.md)
 
 ## Funzionalità
 

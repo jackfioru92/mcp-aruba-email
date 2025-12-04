@@ -6,7 +6,7 @@ MCP (Model Context Protocol) server for accessing Aruba email and calendar via I
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-1.2.0+-green.svg)](https://modelcontextprotocol.io/)
 
-**English** | [Italiano](README_IT.md)
+[Italiano](README_IT.md) | **English**
 
 ## Features
 
