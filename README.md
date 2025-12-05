@@ -1,417 +1,386 @@
 # MCP Aruba Email & Calendar Server
 
-MCP (Model Context Protocol) server for accessing Aruba email and calendar via IMAP/SMTP/CalDAV. Seamlessly integrate your Aruba email and calendar with AI assistants like Claude!
+**Italiano** | [English](README_EN.md)
+
+Server MCP (Model Context Protocol) per accedere a email e calendario Aruba tramite IMAP/SMTP/CalDAV. Integra facilmente email e calendario Aruba con assistenti AI come Claude!
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-1.2.0+-green.svg)](https://modelcontextprotocol.io/)
 
-[Italiano](README_IT.md) | **English**
+**Italiano** | [English](README.md)
 
-## Features
+## Funzionalità
 
 ### Email
-- 📧 **List emails** - Browse inbox with optional sender filtering
-- 🔍 **Search emails** - Search by subject/body with date filters
-- 📖 **Read emails** - Get full email content
-- ✉️ **Send emails** - Send emails via SMTP with custom formatting
+- 📧 **Elenca email** - Naviga nella casella con filtri per mittente
+- 🔍 **Cerca email** - Ricerca per oggetto/corpo con filtri data
+- 📖 **Leggi email** - Ottieni il contenuto completo
+- ✉️ **Invia email** - Invia email via SMTP con formattazione personalizzata
 
-### Calendar
-- 📅 **Create events** - Create calendar events with attendees
-- 📋 **List events** - View upcoming events
-- ✅ **Accept invitations** - Accept calendar invitations
-- ❌ **Decline invitations** - Decline calendar invitations
-- ❓ **Tentative response** - Mark as maybe attending
-- 🗑️ **Delete events** - Remove events from calendar
+### Calendario
+- 📅 **Crea eventi** - Crea eventi calendario con partecipanti
+- 📋 **Elenca eventi** - Visualizza eventi futuri
+- ✅ **Accetta inviti** - Accetta inviti calendario
+- ❌ **Declina inviti** - Declina inviti calendario
+- ❓ **Risposta tentativa** - Segna come forse partecipo
+- 🗑️ **Elimina eventi** - Rimuovi eventi dal calendario
 
-### General
-- 🔒 **Secure** - Uses IMAP/SMTP/CalDAV over SSL/TLS
-- ⚡ **Fast** - Efficient connection handling with context managers
-- 🤖 **AI-Ready** - Works seamlessly with Claude Desktop and other MCP clients
+### Generale
+- 🔒 **Sicuro** - Usa IMAP/SMTP/CalDAV su SSL/TLS
+- ⚡ **Veloce** - Gestione efficiente delle connessioni con context manager
+- 🤖 **Pronto per AI** - Funziona perfettamente con Claude Desktop e altri client MCP
 
-## Installation
+## Installazione
 
 ```bash
-# Clone repository
-cd /Users/giacomofiorucci/Sviluppo/mcp_aruba
+# Clona il repository
+git clone https://github.com/jackfioru92/mcp-aruba-email.git
+cd mcp-aruba-email
 
-# Create virtual environment
+# Crea ambiente virtuale
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate  # Su Windows: .venv\Scripts\activate
 
-# Install dependencies
+# Installa dipendenze
 pip install -e .
 ```
 
-## Configuration
+## Configurazione
 
-1. Copy `.env.example` to `.env`:
+1. Copia `.env.example` in `.env`:
 ```bash
 cp .env.example .env
 ```
 
-2. Edit `.env` with your Aruba credentials:
+2. Modifica `.env` con le tue credenziali Aruba:
 ```env
-# Email configuration
+# Configurazione Email
 IMAP_HOST=imaps.aruba.it
 IMAP_PORT=993
-IMAP_USERNAME=your_email@aruba.it
-IMAP_PASSWORD=your_password_here
+IMAP_USERNAME=tua_email@aruba.it
+IMAP_PASSWORD=tua_password
 
 SMTP_HOST=smtps.aruba.it
 SMTP_PORT=465
 
-# Calendar configuration
-CALDAV_URL=https://caldav.aruba.it
-CALDAV_USERNAME=your_email@aruba.it
-CALDAV_PASSWORD=your_password_here
+# Configurazione Calendario
+CALDAV_URL=https://syncdav.aruba.it/calendars/tua_email@aruba.it/
+CALDAV_USERNAME=tua_email@aruba.it
+CALDAV_PASSWORD=tua_password
 ```
 
-> **Note**: Your credentials are stored locally and never leave your machine. The MCP server runs locally and connects directly to Aruba's servers.
+> **Nota**: Le credenziali sono memorizzate localmente e non lasciano mai il tuo computer. Il server MCP viene eseguito localmente e si connette direttamente ai server Aruba.
 
-## Usage
+## Utilizzo
 
-### Run the server directly
+### Esegui il server direttamente
 
 ```bash
 python -m mcp_aruba.server
 ```
 
-### Configure with Claude Desktop
+### Configura con Claude Desktop
 
-See [CLAUDE_SETUP.md](CLAUDE_SETUP.md) for detailed instructions.
+Vedi [CLAUDE_SETUP.md](CLAUDE_SETUP.md) per istruzioni dettagliate.
 
-Quick config for `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Configurazione rapida per `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "aruba-email-calendar": {
       "command": "python",
-      "args": [
-        "-m",
-        "mcp_aruba.server"
-      ],
+      "args": ["-m", "mcp_aruba.server"],
       "env": {
         "IMAP_HOST": "imaps.aruba.it",
         "IMAP_PORT": "993",
-        "IMAP_USERNAME": "your_email@aruba.it",
-        "IMAP_PASSWORD": "your_password_here",
+        "IMAP_USERNAME": "tua_email@aruba.it",
+        "IMAP_PASSWORD": "tua_password",
         "SMTP_HOST": "smtps.aruba.it",
         "SMTP_PORT": "465",
-        "CALDAV_URL": "https://caldav.aruba.it",
-        "CALDAV_USERNAME": "your_email@aruba.it",
-        "CALDAV_PASSWORD": "your_password_here"
+        "CALDAV_URL": "https://syncdav.aruba.it/calendars/tua_email@aruba.it/",
+        "CALDAV_USERNAME": "tua_email@aruba.it",
+        "CALDAV_PASSWORD": "tua_password"
       }
     }
   }
 }
 ```
 
-### Configure with VS Code Copilot
+### Configura con VS Code Copilot
 
-See [VSCODE_SETUP.md](VSCODE_SETUP.md) for detailed instructions on using this server with VS Code's Copilot MCP extension.
+Vedi [VSCODE_SETUP.md](VSCODE_SETUP.md) per istruzioni dettagliate sull'uso di questo server con l'estensione Copilot MCP di VS Code.
 
-## Available Tools
+### Usa la CLI rapida
 
-### Email Tools
-### `list_emails`
-List recent emails with optional filtering.
+```bash
+# Attiva ambiente virtuale
+source .venv/bin/activate
 
-**Parameters:**
-- `folder` (str, default: "INBOX") - Mail folder to read from
-- `sender_filter` (str, optional) - Filter by sender email
-- `limit` (int, default: 10, max: 50) - Number of emails to return
+# Mostra ultime 5 email
+python cli.py emails
 
-**Returns:** List of email objects with `id`, `from`, `to`, `subject`, `date`, and `body` preview
+# Mostra ultime 10 email
+python cli.py emails 10
 
-**Examples:**
-```
-List the last 5 emails from john@example.com
-Show me recent emails in my inbox
-Get the 10 most recent emails from my boss
-```
+# Mostra eventi prossimi 7 giorni
+python cli.py calendar
 
-**Python usage:**
-```python
-from mcp_aruba.email_client import ArubaEmailClient
-
-with ArubaEmailClient(host="imaps.aruba.it", port=993, 
-                      username="you@aruba.it", password="***") as client:
-    emails = client.list_emails(sender_filter="colleague@example.com", limit=5)
-    for email in emails:
-        print(f"{email['from']}: {email['subject']}")
+# Mostra eventi prossimi 14 giorni
+python cli.py calendar 14
 ```
 
-### `read_email`
-Read full content of a specific email.
+## Strumenti Disponibili
 
-**Parameters:**
-- `email_id` (str) - Email ID from list_emails
-- `folder` (str, default: "INBOX") - Mail folder
+### Strumenti Email
 
-**Returns:** Full email object with complete body content
+#### `list_emails`
+Elenca email recenti con filtri opzionali.
 
-**Examples:**
+**Parametri:**
+- `folder` (str, default: "INBOX") - Cartella email da leggere
+- `sender_filter` (str, opzionale) - Filtra per email mittente
+- `limit` (int, default: 10, max: 50) - Numero di email da restituire
+
+**Esempi:**
 ```
-Read email 123
-Show me the full content of email 456
-```
-
-**Python usage:**
-```python
-email = client.read_email(email_id="123")
-print(f"Subject: {email['subject']}")
+Mostra le ultime 5 email da john@example.com
+Elenca email recenti nella mia inbox
+Dammi le 10 email più recenti dal mio capo
 ```
 
-### Calendar Tools
+#### `read_email`
+Leggi il contenuto completo di un'email specifica.
 
-### `create_calendar_event`
-Create a new calendar event with optional attendees.
+**Parametri:**
+- `email_id` (str) - ID email da list_emails
+- `folder` (str, default: "INBOX") - Cartella email
 
-**Parameters:**
-- `summary` (str) - Event title
-- `start` (str) - Start datetime in ISO format (YYYY-MM-DDTHH:MM:SS)
-- `end` (str) - End datetime in ISO format
-- `description` (str, optional) - Event description
-- `location` (str, optional) - Event location
-- `attendees` (str, optional) - Comma-separated list of attendee emails
-
-**Returns:** Created event details including UID
-
-**Examples:**
+**Esempi:**
 ```
-Create a meeting called "Team Standup" tomorrow at 10am for 1 hour
-Schedule a "Project Review" event on December 10th at 2pm with john@example.com
+Leggi l'email 123
+Mostrami il contenuto completo dell'email 456
 ```
 
-**Python usage:**
-```python
-from mcp_aruba.calendar_client import ArubaCalendarClient
-from datetime import datetime, timedelta
+#### `search_emails`
+Cerca email per oggetto o contenuto corpo.
 
-with ArubaCalendarClient(url="https://caldav.aruba.it",
-                         username="you@aruba.it", password="***") as client:
-    result = client.create_event(
-        summary="Team Meeting",
-        start=datetime.now() + timedelta(days=1),
-        end=datetime.now() + timedelta(days=1, hours=1),
-        description="Discuss quarterly goals",
-        location="Conference Room A",
-        attendees=["colleague@example.com"]
-    )
-    print(f"Event created: {result['uid']}")
+**Parametri:**
+- `query` (str) - Query di ricerca
+- `folder` (str, default: "INBOX") - Cartella dove cercare
+- `from_date` (str, opzionale) - Solo email da questa data (formato: DD-MMM-YYYY)
+- `limit` (int, default: 10, max: 50) - Numero massimo di risultati
+
+**Esempi:**
+```
+Cerca email che parlano di "API" dalla settimana scorsa
+Trova tutte le email su "fattura" da dicembre
 ```
 
-### `list_calendar_events`
-List calendar events within a date range.
+#### `send_email`
+Invia un'email via SMTP.
 
-**Parameters:**
-- `start_date` (str, optional) - Start date in ISO format (default: today)
-- `end_date` (str, optional) - End date in ISO format (default: 30 days from now)
-- `limit` (int, default: 50) - Maximum events to return
+**Parametri:**
+- `to` (str) - Indirizzo email destinatario
+- `subject` (str) - Oggetto email
+- `body` (str) - Corpo email (testo semplice)
+- `from_name` (str, default: "Giacomo Fiorucci") - Nome visualizzato mittente
 
-**Returns:** List of calendar events with details
-
-**Examples:**
+**Esempi:**
 ```
-Show me my calendar for this week
-What events do I have in December?
-List all my meetings for the next 7 days
+Invia un'email a colleague@example.com ringraziando per l'aggiornamento
+Rispondi a john@example.com con lo stato del progetto
 ```
 
-**Python usage:**
-```python
-events = client.list_events(limit=10)
-for event in events:
-    print(f"{event['start']}: {event['summary']}")
+### Strumenti Calendario
+
+#### `create_calendar_event`
+Crea un nuovo evento calendario.
+
+**Parametri:**
+- `summary` (str) - Titolo evento
+- `start` (str) - Data/ora inizio in formato ISO (YYYY-MM-DDTHH:MM:SS)
+- `end` (str) - Data/ora fine in formato ISO
+- `description` (str, opzionale) - Descrizione evento
+- `location` (str, opzionale) - Luogo evento
+- `attendees` (str, opzionale) - Lista email partecipanti separati da virgola
+
+**Esempi:**
+```
+Crea un meeting chiamato "Riunione Team" domani alle 15 per 1 ora
+Programma un "Project Review" il 10 dicembre alle 14 con john@example.com
 ```
 
-### `accept_calendar_event`
-Accept a calendar event invitation.
+#### `list_calendar_events`
+Elenca eventi calendario in un intervallo di date.
 
-**Parameters:**
-- `event_uid` (str) - UID of the event
-- `comment` (str, optional) - Optional comment
+**Parametri:**
+- `start_date` (str, opzionale) - Data inizio in formato ISO (default: oggi)
+- `end_date` (str, opzionale) - Data fine in formato ISO (default: 30 giorni da ora)
+- `limit` (int, default: 50) - Eventi massimi da restituire
 
-**Returns:** Response status
-
-**Examples:**
+**Esempi:**
 ```
-Accept the meeting invitation for "Team Standup"
-Accept event abc123@aruba.it with comment "Looking forward to it!"
-```
-
-**Python usage:**
-```python
-result = client.respond_to_event(
-    event_uid="event123@aruba.it",
-    response="ACCEPTED",
-    comment="Ci sarò!"
-)
+Mostrami il mio calendario per questa settimana
+Quali eventi ho a dicembre?
+Elenca tutti i miei meeting per i prossimi 7 giorni
 ```
 
-### `decline_calendar_event`
-Decline a calendar event invitation.
+#### `accept_calendar_event`
+Accetta un invito calendario.
 
-**Parameters:**
-- `event_uid` (str) - UID of the event
-- `comment` (str, optional) - Optional comment
+**Parametri:**
+- `event_uid` (str) - UID dell'evento
+- `comment` (str, opzionale) - Commento opzionale
 
-**Returns:** Response status
-
-**Examples:**
+**Esempi:**
 ```
-Decline the event abc123@aruba.it
-Decline meeting with comment "Sorry, I have a conflict"
+Accetta l'invito al meeting "Team Standup"
+Accetta l'evento abc123@aruba.it con commento "Non vedo l'ora!"
 ```
 
-### `tentative_calendar_event`
-Mark attendance as tentative (maybe).
+#### `decline_calendar_event`
+Declina un invito calendario.
 
-**Parameters:**
-- `event_uid` (str) - UID of the event
-- `comment` (str, optional) - Optional comment
+**Parametri:**
+- `event_uid` (str) - UID dell'evento
+- `comment` (str, opzionale) - Commento opzionale
 
-**Returns:** Response status
-
-**Examples:**
+**Esempi:**
 ```
-Mark event abc123@aruba.it as tentative
-Maybe attend the meeting tomorrow
+Declina l'evento abc123@aruba.it
+Declina il meeting con commento "Mi dispiace, ho un conflitto"
 ```
 
-### `delete_calendar_event`
-Delete a calendar event.
+#### `tentative_calendar_event`
+Segna la partecipazione come tentativa (forse).
 
-**Parameters:**
-- `event_uid` (str) - UID of the event to delete
+**Parametri:**
+- `event_uid` (str) - UID dell'evento
+- `comment` (str, opzionale) - Commento opzionale
 
-**Returns:** Deletion status
-
-**Examples:**
+**Esempi:**
 ```
-Delete event abc123@aruba.it
-Cancel my 2pm meeting
-```
-
-## Use Cases
-
-### 📬 Team Communication
-```
-Show me the latest emails from my team members
-List unread emails from project@company.com
+Segna l'evento abc123@aruba.it come tentativo
+Forse partecipo al meeting di domani
 ```
 
-### 🔍 Project Tracking
-```
-Search for emails mentioning "API changes" from the last week
-Find all emails about "invoice" since December 1st
-```
+#### `delete_calendar_event`
+Elimina un evento calendario.
 
-### 📊 Daily Email Summary
-```
-Summarize all emails I received today
-Show me important emails from this morning
-```
+**Parametri:**
+- `event_uid` (str) - UID dell'evento da eliminare
 
-### ✉️ Quick Responses
+**Esempi:**
 ```
-Send an email to colleague@example.com thanking them for the update
-Reply to john@example.com with the project status
+Elimina l'evento abc123@aruba.it
+Cancella il mio meeting delle 14
 ```
 
-### 📅 Calendar Management
+## Casi d'Uso
+
+### 📬 Comunicazione Team
 ```
-What meetings do I have this week?
-Create a team meeting for tomorrow at 3pm
-Accept the calendar invitation for Friday's review
-Decline the Monday morning meeting with a note that I'm on vacation
-Show me my schedule for next week
+Mostrami le ultime email dai membri del mio team
+Elenca email non lette da project@company.com
 ```
 
-### 🤖 AI-Powered Email & Calendar Management
-With Claude Desktop, you can:
-- Ask Claude to summarize multiple emails
-- Draft responses based on email content
-- Extract action items from email threads
-- Organize and categorize emails automatically
-- Schedule meetings based on email conversations
-- Manage calendar conflicts and find available time slots
-## Tech Stack
+### 🔍 Tracking Progetti
+```
+Cerca email che menzionano "modifiche API" dall'ultima settimana
+Trova tutte le email su "fattura" dal 1° dicembre
+```
 
-- **Python 3.10+** - Modern Python
-- **MCP SDK 1.2.0+** - Model Context Protocol for AI integration
-- **imaplib** - Standard library IMAP client (SSL/TLS support)
-- **smtplib** - Standard library SMTP client (SSL/TLS support)
-- **email** - Email parsing and MIME handling
-- **caldav** - CalDAV protocol for calendar access
-- **icalendar** - iCalendar format parsing and generation
-- **python-dotenv** - Environment variable management
+### 📊 Riepilogo Email Giornaliero
+```
+Riassumi tutte le email che ho ricevuto oggi
+Mostrami le email importanti di stamattina
+```
 
-## Security & Privacy
+### ✉️ Risposte Rapide
+```
+Invia un'email a colleague@example.com ringraziandoli per l'aggiornamento
+Rispondi a john@example.com con lo stato del progetto
+```
 
-- 🔒 **Local execution** - Server runs on your machine, credentials never leave your computer
-- 🛡️ **SSL/TLS encryption** - All connections use secure protocols (IMAPS port 993, SMTPS port 465, HTTPS for CalDAV)
-- 🔐 **Environment variables** - Credentials stored in `.env` file (gitignored by default)
-- 📝 **Body truncation** - Email body limited to 5000 chars to prevent context overflow
-- ✅ **No external services** - Direct connection to Aruba servers only
+### 📅 Gestione Calendario
+```
+Quali meeting ho questa settimana?
+Crea una riunione team per domani alle 15
+Accetta l'invito calendario per la review di venerdì
+Declina il meeting di lunedì, sono in vacanza
+Mostrami il mio programma per la prossima settimana
+```
 
-### Security Best Practices
+### 🤖 Gestione Email & Calendario con AI
+Con Claude Desktop o VS Code Copilot, puoi:
+- Chiedere a Claude di riassumere più email
+- Creare risposte basate sul contenuto email
+- Estrarre task da thread email
+- Organizzare e categorizzare email automaticamente
+- Programmare meeting basati su conversazioni email
+- Gestire conflitti calendario e trovare fasce orarie disponibili
 
-1. Never commit `.env` file to version control
-2. Use strong, unique passwords for your email account
-3. Consider enabling 2FA on your Aruba account
-4. Regularly rotate your credentials
-5. Review MCP server logs for suspicious activity
+## Stack Tecnologico
+
+- **Python 3.10+** - Python moderno
+- **MCP SDK 1.2.0+** - Model Context Protocol per integrazione AI
+- **imaplib** - Client IMAP libreria standard (supporto SSL/TLS)
+- **smtplib** - Client SMTP libreria standard (supporto SSL/TLS)
+- **email** - Parsing email e gestione MIME
+- **caldav** - Protocollo CalDAV per accesso calendario
+- **icalendar** - Parsing e generazione formato iCalendar
+- **python-dotenv** - Gestione variabili ambiente
+
+## Sicurezza & Privacy
+
+- 🔒 **Esecuzione locale** - Il server gira sul tuo computer, le credenziali non lasciano mai la tua macchina
+- 🛡️ **Crittografia SSL/TLS** - Tutte le connessioni usano protocolli sicuri (IMAPS porta 993, SMTPS porta 465, HTTPS per CalDAV)
+- 🔐 **Variabili ambiente** - Credenziali salvate nel file `.env` (gitignored di default)
+- 📝 **Troncamento corpo** - Corpo email limitato a 5000 caratteri per prevenire overflow del contesto
+- ✅ **Nessun servizio esterno** - Connessione diretta solo ai server Aruba
+
+### Best Practice Sicurezza
+
+1. Non committare mai il file `.env` nel controllo versione
+2. Usa password forti e uniche per il tuo account email
+3. Considera l'abilitazione 2FA sul tuo account Aruba
+4. Ruota regolarmente le tue credenziali
+5. Rivedi i log del server MCP per attività sospette
 
 ## Performance
 
-- ⚡ Connection pooling via context managers
-- 📊 Configurable result limits to prevent memory issues
-- 🚀 On-demand connections (no background processes)
-- 💾 Minimal memory footprint
-### `send_email`
-Send an email via SMTP.
+- ⚡ Connection pooling via context manager
+- 📊 Limiti risultati configurabili per prevenire problemi di memoria
+- 🚀 Connessioni on-demand (nessun processo in background)
+- 💾 Footprint di memoria minimo
 
-**Parameters:**
-## Development
+## Sviluppo
 
-### Running Tests
+### Eseguire i Test
 
 ```bash
-# Activate virtual environment
+# Attiva ambiente virtuale
 source .venv/bin/activate
 
-# Run email connection test
+# Esegui test connessione email
 python test_connection.py
 
-# Run calendar connection test
+# Esegui test connessione calendario
 python test_calendar.py
 
-# Test individual functions
-python -c "
-from src.mcp_aruba.email_client import ArubaEmailClient
-from dotenv import load_dotenv
-import os
+# Test creazione evento
+python test_create_event.py
 
-load_dotenv()
-client = ArubaEmailClient(
-    host=os.getenv('IMAP_HOST'),
-    port=int(os.getenv('IMAP_PORT')),
-    username=os.getenv('IMAP_USERNAME'),
-    password=os.getenv('IMAP_PASSWORD')
-)
-with client:
-    emails = client.list_emails(limit=3)
-    print(f'Found {len(emails)} emails')
-"
+# Test invio invito calendario
+python send_invite.py
 ```
 
-### Code Quality
+### Qualità Codice
 
 ```bash
-# Format code
+# Formatta codice
 black src/
 
 # Type checking
@@ -421,179 +390,112 @@ mypy src/
 pylint src/
 ```
 
-### Contributing
+## Abilitare Sincronizzazione CalDAV
 
-Contributions are welcome! Please:
+Per usare le funzionalità calendario, devi abilitare la sincronizzazione CalDAV in Aruba Webmail:
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. Vai su https://webmail.aruba.it
+2. Naviga alla sezione Calendario
+3. Clicca su **"Sincronizza calendario"**
+4. Scegli **"Calendari"** → **"Procedi"**
+5. Seleziona **"Lettura e modifica"** (CalDAV) → **"Procedi"**
+6. Seleziona i calendari da sincronizzare → **"Procedi"**
 
-### Roadmap
+Una volta abilitato, potrai gestire completamente i tuoi calendari tramite il server MCP!
 
-- [ ] Add IMAP IDLE support for real-time notifications
-- [ ] Implement email attachments handling
-- [ ] Add support for HTML email composition
-- [ ] Create pytest test suite
-- [ ] Add email filtering by labels/folders
-- [ ] Support for multiple email accounts
+## Risoluzione Problemi
+
+### Calendario non disponibile
+
+Se vedi "No calendar available", devi abilitare la sincronizzazione CalDAV (vedi sezione sopra).
+
+### Errori connessione
+
+1. Verifica che le credenziali in `.env` siano corrette
+2. Controlla che le porte 993 (IMAP), 465 (SMTP), 443 (CalDAV) non siano bloccate
+3. Verifica le impostazioni firewall
+4. Prova a eseguire gli script di test
+
+### Email o eventi non visualizzati
+
+1. Verifica di avere i permessi corretti sull'account
+2. Controlla i filtri applicati (sender_filter, date filters)
+3. Aumenta il limite di risultati
 
 ## FAQ
 
-### Q: Does this work with other email providers?
-**A:** The code is designed for Aruba but can be adapted for any IMAP/SMTP provider by changing the host configuration.
+**Q: È sicuro memorizzare le mie credenziali nel file .env?**  
+A: Sì, finché il file `.env` non viene committato nel controllo versione. È già incluso in `.gitignore`. Le credenziali rimangono sul tuo computer locale.
 
-### Q: Can I use this without Claude Desktop?
-**A:** Yes! You can use the Python client directly or integrate it with any MCP-compatible client.
+**Q: Posso usare questo con altri provider email?**  
+A: Il server è ottimizzato per Aruba, ma puoi adattarlo per altri provider che supportano IMAP/SMTP/CalDAV modificando le configurazioni.
 
-### Q: Is my data secure?
-**A:** Yes. The server runs locally on your machine, and all connections use SSL/TLS encryption. Your credentials never leave your computer.
+**Q: Quanto costano i server MCP?**  
+A: I server MCP sono gratuiti! Questo è software open-source. Hai solo bisogno di un abbonamento Claude o GitHub Copilot per usarlo con quegli AI.
 
-### Q: How do I get my Aruba IMAP/SMTP credentials?
-**A:** Use your Aruba email address and password. IMAP/SMTP is typically enabled by default on Aruba accounts.
+**Q: I miei dati vengono inviati a terze parti?**  
+A: No! Il server gira localmente e si connette direttamente ai server Aruba. Nessun dato passa attraverso servizi terzi.
 
-### Q: Can I read emails in real-time?
-**A:** Currently, the server fetches emails on-demand when you query. Real-time IDLE support is planned for future versions.
+**Q: Posso contribuire al progetto?**  
+A: Assolutamente! Vedi [CONTRIBUTING.md](CONTRIBUTING.md) per linee guida.
 
-## Troubleshooting
+## Contribuire
 
-### "Failed to connect to IMAP server"
-- Verify your credentials in `.env`
-- Check that IMAP is enabled on your Aruba account
-- Ensure your firewall allows connections to imaps.aruba.it:993
+I contributi sono benvenuti! Per favore:
 
-### "Authentication failed"
-- Double-check your email and password
-- Try logging into Aruba webmail to verify credentials
-- Check if 2FA is enabled (may need app-specific password)
+1. Fai un fork del repository
+2. Crea un feature branch (`git checkout -b feature/funzionalita-fantastica`)
+3. Committa le modifiche (`git commit -m 'Aggiungi funzionalità fantastica'`)
+4. Pusha al branch (`git push origin feature/funzionalita-fantastica`)
+5. Apri una Pull Request
 
-### Claude Desktop doesn't show MCP icon
-- Verify JSON syntax in `claude_desktop_config.json`
-- Check Python path is correct in config
-- Restart Claude Desktop completely (Cmd+Q then reopen)
-- Check Console.app logs for error messages
+Vedi [CONTRIBUTING.md](CONTRIBUTING.md) per dettagli completi.
 
-## License
+## Roadmap
 
-MIT License - see [LICENSE](LICENSE) file for details
+- [ ] Supporto IMAP IDLE per notifiche real-time
+- [ ] Gestione allegati email
+- [ ] Composizione email HTML
+- [ ] Suite test pytest
+- [ ] Supporto account multipli
+- [ ] Eventi calendario ricorrenti
+- [ ] Notifiche calendario
+- [ ] Integrazione con altri calendari (Google Calendar, Outlook)
 
-## Support
+## Documentazione
 
-- 📧 Issues: [GitHub Issues](https://github.com/yourusername/mcp-aruba/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/yourusername/mcp-aruba/discussions)
-- 📖 Documentation: [Full docs](https://github.com/yourusername/mcp-aruba/wiki)
+- [README.md](README.md) - Documentazione principale (English)
+- [README_IT.md](README_IT.md) - Documentazione in italiano
+- [EXAMPLES.md](EXAMPLES.md) - Esempi d'uso
+- [CLAUDE_SETUP.md](CLAUDE_SETUP.md) - Setup Claude Desktop
+- [VSCODE_SETUP.md](VSCODE_SETUP.md) - Setup VS Code Copilot
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Guida contribuzioni
+- [LICENSE](LICENSE) - Licenza MIT
 
-## Acknowledgments
+## Supporto
 
-- Built with [Model Context Protocol](https://modelcontextprotocol.io/)
-- Inspired by the need for seamless AI-email integration
-- Thanks to the Anthropic team for Claude Desktop and MCP
+Se incontri problemi:
 
-## Author
+1. Controlla la sezione [Risoluzione Problemi](#risoluzione-problemi)
+2. Esegui gli script di test per verificare la connessione
+3. Controlla i log per messaggi d'errore
+4. Apri un issue su [GitHub](https://github.com/jackfioru92/mcp-aruba-email/issues)
 
-Created by Giacomo Fiorucci
+## Licenza
+
+Questo progetto è rilasciato sotto licenza MIT. Vedi il file [LICENSE](LICENSE) per dettagli.
+
+## Autore
+
+Giacomo Fiorucci - giacomo.fiorucci@emotion-team.com
+
+## Ringraziamenti
+
+- [Model Context Protocol](https://modelcontextprotocol.io/) per il framework MCP
+- [Anthropic](https://www.anthropic.com/) per Claude Desktop
+- [GitHub](https://github.com/) per Copilot
+- Aruba per i servizi email e calendario affidabili
 
 ---
 
-**⭐ If you find this project useful, please consider giving it a star on GitHub!**
-)
-print(f"Email sent: {result['status']}")
-```query` (str) - Search term
-- `folder` (str, default: "INBOX") - Mail folder
-- `from_date` (str, optional) - Date filter (format: DD-MMM-YYYY, e.g., "01-Dec-2024")
-- `limit` (int, default: 10, max: 50) - Max results
-
-**Example:**
-```
-Search for emails about "API changes" since December 1st, 2024
-```
-
-## Use Cases
-
-### Read Denisa's Development Updates
-```
-Show me the latest 3 emails from denisa@c-tic.it
-```
-
-### Track API Specification Changes
-```
-Search for emails mentioning "marketplace API" or "walletAccount" from the last week
-```
-
-### Monitor Test Requests
-```
-Find emails with "request" in the subject from denisa@c-tic.it
-```
-
-## Architecture
-
-```
-mcp_aruba/
-├── src/
-│   └── mcp_aruba/
-│       ├── __init__.py
-│       ├── server.py         # MCP server with FastMCP tools
-│       └── email_client.py   # IMAP client wrapper
-├── pyproject.toml            # Dependencies
-├── .env.example              # Config template
-├── .gitignore
-└── README.md
-```
-
-## Tech Stack
-
-- **Python 3.10+** - Modern async Python
-- **MCP SDK 1.2.0+** - Model Context Protocol
-- **imaplib** - Standard library IMAP client
-- **email** - Email parsing
-- **python-dotenv** - Environment variables
-
-## Security Notes
-
-- ⚠️ Never commit `.env` file (already in .gitignore)
-- 🔒 IMAP password is stored in environment variables
-- 🛡️ Connection uses SSL/TLS (port 993)
-- 📝 Email body limited to 5000 chars per response
-
-## Troubleshooting
-
-### Connection Errors
-```
-Error: Failed to connect to IMAP server
-```
-**Solution:** Check IMAP credentials in `.env` file
-
-### No emails returned
-```
-Listed 0 emails from INBOX
-```
-**Solution:** Verify sender_filter email address is correct
-
-### Claude Desktop not showing MCP icon
-**Solution:** 
-1. Restart Claude Desktop completely
-2. Check `claude_desktop_config.json` syntax
-3. Verify Python path: `which python`
-
-## Development
-
-```bash
-# Run tests (coming soon)
-pytest tests/
-
-# Format code
-black src/
-
-# Type checking
-mypy src/
-```
-
-## License
-
-MIT
-
-## Author
-
-Giacomo Fiorucci - giacomo.fiorucci@emotion-team.com
+⭐ Se questo progetto ti è utile, considera di dargli una stella su GitHub!
