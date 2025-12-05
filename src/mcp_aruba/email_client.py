@@ -249,13 +249,104 @@ class ArubaEmailClient:
             logger.error(f"Error searching emails: {e}")
             raise
 
+    def verify_email_exists(self, email_address: str) -> Dict:
+        """Verify if an email address exists by checking with the recipient's mail server.
+        
+        Args:
+            email_address: Email address to verify
+            
+        Returns:
+            Dictionary with verification status and details
+        """
+        import socket
+        import dns.resolver
+        
+        try:
+            # Extract domain from email
+            domain = email_address.split('@')[1]
+            
+            # Get MX records for the domain
+            try:
+                mx_records = dns.resolver.resolve(domain, 'MX')
+                mx_host = str(mx_records[0].exchange)
+            except Exception as e:
+                logger.warning(f"Could not resolve MX records for {domain}: {e}")
+                return {
+                    "email": email_address,
+                    "exists": "unknown",
+                    "reason": f"Could not find mail server for domain {domain}",
+                    "verification_method": "mx_lookup"
+                }
+            
+            # Connect to the mail server and check if mailbox exists
+            try:
+                # Create SMTP connection (port 25 for verification)
+                server = smtplib.SMTP(timeout=10)
+                server.connect(mx_host, 25)
+                server.helo(self.smtp_host)
+                server.mail(self.username)
+                
+                # RCPT TO command - this checks if the mailbox exists
+                code, message = server.rcpt(email_address)
+                server.quit()
+                
+                # 250 = mailbox exists and accepts mail
+                # 550 = mailbox does not exist
+                # 551-554 = various rejection reasons
+                if code == 250:
+                    logger.info(f"Email {email_address} verified: exists")
+                    return {
+                        "email": email_address,
+                        "exists": True,
+                        "reason": "Mailbox exists and accepts mail",
+                        "smtp_code": code,
+                        "verification_method": "smtp_rcpt"
+                    }
+                elif code in [550, 551, 553]:
+                    logger.warning(f"Email {email_address} verified: does not exist (code {code})")
+                    return {
+                        "email": email_address,
+                        "exists": False,
+                        "reason": message.decode() if isinstance(message, bytes) else str(message),
+                        "smtp_code": code,
+                        "verification_method": "smtp_rcpt"
+                    }
+                else:
+                    logger.info(f"Email {email_address} verification uncertain (code {code})")
+                    return {
+                        "email": email_address,
+                        "exists": "unknown",
+                        "reason": message.decode() if isinstance(message, bytes) else str(message),
+                        "smtp_code": code,
+                        "verification_method": "smtp_rcpt"
+                    }
+                    
+            except (socket.timeout, socket.error, smtplib.SMTPException) as e:
+                logger.warning(f"Could not verify {email_address} via SMTP: {e}")
+                return {
+                    "email": email_address,
+                    "exists": "unknown",
+                    "reason": f"Mail server did not respond or blocked verification: {str(e)}",
+                    "verification_method": "smtp_rcpt_failed"
+                }
+                
+        except Exception as e:
+            logger.error(f"Error verifying email {email_address}: {e}")
+            return {
+                "email": email_address,
+                "exists": "unknown",
+                "reason": f"Verification error: {str(e)}",
+                "verification_method": "error"
+            }
+
     def send_email(
         self,
         to: str,
         subject: str,
         body: str,
         from_name: Optional[str] = None,
-        save_to_sent: bool = True
+        save_to_sent: bool = True,
+        verify_recipient: bool = True
     ) -> Dict:
         """Send an email via SMTP.
         
@@ -265,11 +356,27 @@ class ArubaEmailClient:
             body: Email body (plain text)
             from_name: Optional sender display name
             save_to_sent: Whether to save a copy to the Sent folder (default: True)
+            verify_recipient: Whether to verify recipient email exists before sending (default: True)
             
         Returns:
             Dictionary with send status
         """
         try:
+            # Verify recipient email exists (if requested)
+            if verify_recipient:
+                verification = self.verify_email_exists(to)
+                if verification["exists"] is False:
+                    logger.error(f"Recipient verification failed: {verification['reason']}")
+                    return {
+                        "status": "failed",
+                        "error": "Recipient email does not exist",
+                        "to": to,
+                        "verification": verification
+                    }
+                elif verification["exists"] == "unknown":
+                    logger.warning(f"Could not verify recipient: {verification['reason']}")
+                    # Continue anyway but include warning
+            
             # Create message
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
@@ -305,13 +412,18 @@ class ArubaEmailClient:
                     logger.warning(f"Failed to save email to Sent folder: {e}")
                     # Don't fail the whole operation if saving to Sent fails
             
-            return {
+            result = {
                 "status": "sent",
                 "to": to,
                 "subject": subject,
                 "from": msg['From'],
                 "saved_to_sent": save_to_sent
             }
+            
+            if verify_recipient:
+                result["verification"] = verification
+            
+            return result
             
         except Exception as e:
             logger.error(f"Error sending email: {e}")
