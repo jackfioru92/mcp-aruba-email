@@ -205,6 +205,39 @@ def send_email(
         return {"error": str(e), "status": "failed"}
 
 
+@mcp.tool()
+def check_bounced_emails(
+    folder: str = "INBOX",
+    limit: int = 20
+) -> list[dict[str, Any]]:
+    """Check for bounced or failed email delivery notifications.
+    
+    This tool searches for delivery failure notifications (bounce-backs) that indicate
+    emails could not be delivered. Common reasons include:
+    - Recipient mailbox does not exist
+    - Recipient mailbox is full
+    - Message rejected by recipient server
+    
+    Args:
+        folder: Mail folder to check (default: INBOX)
+        limit: Maximum number of bounce notifications to check (default: 20)
+    
+    Returns:
+        List of bounce notifications with failed recipient and reason
+    
+    Example:
+        check_bounced_emails(limit=10)
+    """
+    try:
+        with _get_email_client() as client:
+            bounced = client.check_bounced_emails(folder=folder, limit=limit)
+            logger.info(f"Found {len(bounced)} bounced email notifications")
+            return bounced
+    except Exception as e:
+        logger.error(f"Error checking bounced emails: {e}")
+        return {"error": str(e)}
+
+
 # ============================================================================
 # CALENDAR TOOLS
 # ============================================================================

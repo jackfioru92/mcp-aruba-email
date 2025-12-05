@@ -317,6 +317,105 @@ class ArubaEmailClient:
             logger.error(f"Error sending email: {e}")
             raise
 
+    def check_bounced_emails(self, folder: str = "INBOX", limit: int = 50) -> List[Dict]:
+        """Check for bounced/failed delivery emails.
+        
+        Args:
+            folder: Mail folder to check (default: INBOX)
+            limit: Maximum number of emails to check
+            
+        Returns:
+            List of bounced email notifications with details
+        """
+        self._ensure_connected()
+        
+        try:
+            self._connection.select(folder)
+            
+            # Search for common bounce indicators
+            bounce_patterns = [
+                'Mail Delivery Failed',
+                'Delivery Status Notification',
+                'Undelivered Mail Returned to Sender',
+                'Mail delivery failed',
+                'Returned mail',
+                'Failure Notice',
+                'MAILER-DAEMON'
+            ]
+            
+            bounced_emails = []
+            
+            for pattern in bounce_patterns:
+                try:
+                    status, messages = self._connection.search(None, f'SUBJECT "{pattern}"')
+                    if status == "OK" and messages[0]:
+                        email_ids = messages[0].split()
+                        
+                        for email_id in email_ids[-limit:]:
+                            status, msg_data = self._connection.fetch(email_id, "(RFC822)")
+                            if status != "OK":
+                                continue
+                            
+                            msg = email.message_from_bytes(msg_data[0][1])
+                            
+                            # Parse bounce information
+                            bounce_info = {
+                                "id": email_id.decode(),
+                                "subject": msg.get("Subject", ""),
+                                "from": msg.get("From", ""),
+                                "date": msg.get("Date", ""),
+                                "bounce_type": pattern
+                            }
+                            
+                            # Try to extract original recipient and reason from body
+                            body = ""
+                            if msg.is_multipart():
+                                for part in msg.walk():
+                                    if part.get_content_type() == "text/plain":
+                                        try:
+                                            body = part.get_payload(decode=True).decode()
+                                            break
+                                        except:
+                                            pass
+                            else:
+                                try:
+                                    body = msg.get_payload(decode=True).decode()
+                                except:
+                                    body = str(msg.get_payload())
+                            
+                            # Extract failed recipient email
+                            import re
+                            recipient_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', body)
+                            if recipient_match:
+                                bounce_info["failed_recipient"] = recipient_match.group()
+                            
+                            # Extract error reason (common patterns)
+                            if "user unknown" in body.lower() or "mailbox not found" in body.lower():
+                                bounce_info["reason"] = "Mailbox does not exist"
+                            elif "quota exceeded" in body.lower():
+                                bounce_info["reason"] = "Recipient mailbox full"
+                            elif "rejected" in body.lower():
+                                bounce_info["reason"] = "Message rejected by recipient server"
+                            else:
+                                bounce_info["reason"] = "Delivery failed (see details)"
+                            
+                            bounce_info["body_preview"] = body[:500] if body else "No body"
+                            
+                            # Avoid duplicates
+                            if not any(b["id"] == bounce_info["id"] for b in bounced_emails):
+                                bounced_emails.append(bounce_info)
+                                
+                except Exception as e:
+                    logger.debug(f"Error searching for pattern '{pattern}': {e}")
+                    continue
+            
+            logger.info(f"Found {len(bounced_emails)} bounced email notifications")
+            return bounced_emails
+            
+        except Exception as e:
+            logger.error(f"Error checking bounced emails: {e}")
+            raise
+
     def __enter__(self):
         """Context manager entry."""
         self.connect()
