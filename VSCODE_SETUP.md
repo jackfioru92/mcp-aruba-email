@@ -8,15 +8,22 @@ This guide explains how to use the MCP Aruba Email & Calendar Server with VS Cod
 - GitHub Copilot subscription (with MCP support)
 - MCP Aruba server installed (see [README.md](README.md))
 
-## Step 1: Install Copilot MCP Extension
+## Step 1: Prerequisites
 
-**Note**: MCP support in VS Code Copilot may require specific VS Code Insiders build or GitHub Copilot Labs. Check [VS Code MCP documentation](https://code.visualstudio.com/docs/copilot/copilot-mcp) for availability.
+- **VS Code 1.102+** (MCP support is generally available from this version)
+- **GitHub Copilot** subscription with MCP support
+- Check [VS Code MCP documentation](https://code.visualstudio.com/docs/copilot/chat/mcp-servers) for the latest information
 
-1. Open VS Code
-2. Go to Extensions (`Cmd+Shift+X` on macOS or `Ctrl+Shift+X` on Windows/Linux)
-3. Search for **"GitHub Copilot"**
-4. Ensure you have the latest version with MCP support
-5. Enable MCP in Copilot settings if needed
+### Enable MCP in VS Code Settings
+
+Open VS Code Settings (`Cmd+,` on macOS) and add:
+
+```json
+"chat.mcp.enabled": true,
+"chat.mcp.autostart": true
+```
+
+Or via Command Palette: `Cmd+Shift+P` → "Preferences: Open User Settings (JSON)"
 
 ## Step 2: Install MCP Aruba Server
 
@@ -37,16 +44,20 @@ pip install -e .
 
 ### Configuration File Location
 
-Create the MCP configuration file at:
+Create the MCP configuration file in your **workspace** `.vscode` folder:
+- **Workspace**: `<your-project>/.vscode/mcp.json`
+
+Or for global configuration:
 - **macOS/Linux**: `~/.vscode/mcp.json`
 - **Windows**: `%USERPROFILE%\.vscode\mcp.json`
 
-### Configuration
+### Configuration (IMPORTANT: Use `servers` not `mcpServers`)
 
 ```json
 {
-  "mcpServers": {
+  "servers": {
     "aruba-email": {
+      "type": "stdio",
       "command": "/full/path/to/mcp-aruba-email/.venv/bin/python",
       "args": ["-m", "mcp_aruba.server"],
       "env": {
@@ -65,32 +76,38 @@ Create the MCP configuration file at:
 }
 ```
 
+**⚠️ CRITICAL**: 
+- Use `"servers"` (NOT `"mcpServers"`)
+- Include `"type": "stdio"`
+- These are required for VS Code to recognize the MCP server
+
 **Important**: 
 - Replace `/full/path/to/mcp-aruba-email/` with your actual installation path
 - Replace `your_email@aruba.it` and `your_password_here` with your Aruba credentials
 
-### Example (macOS)
+### Example (macOS) - Workspace Configuration (Recommended)
 
 ```bash
-# Create directory if it doesn't exist
-mkdir -p ~/.vscode
+# Create .vscode folder in your project
+mkdir -p /path/to/your/project/.vscode
 
 # Create configuration file
-cat > ~/.vscode/mcp.json << 'EOF'
+cat > /path/to/your/project/.vscode/mcp.json << 'EOF'
 {
-  "mcpServers": {
+  "servers": {
     "aruba-email": {
+      "type": "stdio",
       "command": "/Users/yourusername/mcp-aruba-email/.venv/bin/python",
       "args": ["-m", "mcp_aruba.server"],
       "env": {
         "IMAP_HOST": "imaps.aruba.it",
         "IMAP_PORT": "993",
-        "IMAP_USERNAME": "giacomo@example.com",
+        "IMAP_USERNAME": "your_email@aruba.it",
         "IMAP_PASSWORD": "your_password",
         "SMTP_HOST": "smtps.aruba.it",
         "SMTP_PORT": "465",
-        "CALDAV_URL": "https://syncdav.aruba.it/calendars/giacomo@example.com/",
-        "CALDAV_USERNAME": "giacomo@example.com",
+        "CALDAV_URL": "https://syncdav.aruba.it/calendars/your_email@aruba.it/",
+        "CALDAV_USERNAME": "your_email@aruba.it",
         "CALDAV_PASSWORD": "your_password"
       }
     }
@@ -99,7 +116,7 @@ cat > ~/.vscode/mcp.json << 'EOF'
 EOF
 ```
 
-## Step 4: Reload VS Code
+## Step 4: Start the MCP Server
 
 After creating the configuration file:
 
@@ -108,17 +125,34 @@ After creating the configuration file:
    - Type "Developer: Reload Window"
    - Press Enter
 
-2. **Or restart VS Code completely**
+2. **Start the MCP Server**:
+   - Press `Cmd+Shift+P` → "MCP: List Servers"
+   - You should see `aruba-email` in the list
+   - Click **Start** to start the server
+
+3. **Or enable autostart** (recommended):
+   Add to your VS Code settings:
+   ```json
+   "chat.mcp.autostart": true
+   ```
 
 ## Step 5: Verify MCP Server Connection
 
-Open a new Copilot chat and try:
+1. Open a new **Copilot Chat** (`Cmd+Shift+I` or click the Copilot icon)
 
-```
-"List my last 5 emails"
-```
+2. Try one of these commands:
+   ```
+   "List my last 5 emails"
+   "Show my calendar for today"
+   ```
 
-If the server is connected, Copilot will use the `list_emails` tool to fetch your emails.
+3. If the server is connected, Copilot will use the MCP tools to fetch your data.
+
+### Check Server Status
+
+- `Cmd+Shift+P` → "MCP: List Servers" - shows all configured servers
+- Look for the green indicator next to `aruba-email`
+- If there's an error, click "Show Output" to see logs
 
 ## Available Tools
 
@@ -184,30 +218,44 @@ Once connected, Copilot will have access to **15 MCP tools**:
 
 ## Troubleshooting
 
-### Server Not Connecting
+### Server Not Found in "MCP: List Servers"
 
-1. **Check configuration file location**:
-   - macOS/Linux: `~/.vscode/mcp.json`
-   - Windows: `%USERPROFILE%\.vscode\mcp.json`
+1. **Check configuration format** - Must use `"servers"` not `"mcpServers"`:
+   ```json
+   {
+     "servers": {        // ✅ Correct
+       "aruba-email": {
+         "type": "stdio",  // ✅ Required
+         ...
+       }
+     }
+   }
+   ```
 
-2. **Verify Python path**:
+2. **Check file location**:
+   - Workspace: `<project>/.vscode/mcp.json` (recommended)
+   - Global: `~/.vscode/mcp.json`
+
+3. **Reload VS Code**: `Cmd+Shift+P` → "Developer: Reload Window"
+
+### Server Not Starting
+
+1. **Verify Python path exists**:
    ```bash
    ls /path/to/mcp-aruba-email/.venv/bin/python
    ```
 
-3. **Test server manually**:
+2. **Test server manually**:
    ```bash
    cd /path/to/mcp-aruba-email
    source .venv/bin/activate
    python -m mcp_aruba.server
+   # Should show: "Starting Aruba Email & Calendar MCP Server"
    ```
 
-4. **Check VS Code Output**:
-   - View → Output
-   - Select "MCP" or "Copilot" from dropdown
-
-5. **Reload VS Code**:
-   - Cmd/Ctrl + Shift + P → "Developer: Reload Window"
+3. **Check VS Code Output**:
+   - `Cmd+Shift+P` → "MCP: List Servers" → Select server → "Show Output"
+   - Look for error messages
 
 ### Authentication Errors
 
