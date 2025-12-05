@@ -124,7 +124,9 @@ def delete_signature(name: str = "default") -> bool:
 
 
 def create_default_signature(name: str, email: str, phone: Optional[str] = None, 
-                             company: Optional[str] = None, role: Optional[str] = None) -> str:
+                             company: Optional[str] = None, role: Optional[str] = None,
+                             photo_url: Optional[str] = None, color: Optional[str] = None,
+                             style: str = "professional") -> str:
     """Create a professional email signature.
     
     Args:
@@ -133,10 +135,18 @@ def create_default_signature(name: str, email: str, phone: Optional[str] = None,
         phone: Phone number (optional)
         company: Company name (optional)
         role: Job role/title (optional)
+        photo_url: URL to profile photo (optional)
+        color: Hex color code for accents (optional, e.g., "#0066cc")
+        style: Signature style - "professional", "minimal", "colorful" (default: "professional")
         
     Returns:
-        Formatted signature text
+        Formatted signature text (HTML if photo/color provided, plain text otherwise)
     """
+    # If photo or color provided, create HTML signature
+    if photo_url or color:
+        return _create_html_signature(name, email, phone, company, role, photo_url, color, style)
+    
+    # Plain text signature
     signature_parts = [
         "",
         "--",
@@ -155,3 +165,72 @@ def create_default_signature(name: str, email: str, phone: Optional[str] = None,
         signature_parts.append(f"📞 {phone}")
     
     return "\n".join(signature_parts)
+
+
+def _create_html_signature(name: str, email: str, phone: Optional[str] = None,
+                           company: Optional[str] = None, role: Optional[str] = None,
+                           photo_url: Optional[str] = None, color: Optional[str] = None,
+                           style: str = "professional") -> str:
+    """Create an HTML email signature with photo and colors.
+    
+    Args:
+        name: Full name
+        email: Email address
+        phone: Phone number (optional)
+        company: Company name (optional)
+        role: Job role/title (optional)
+        photo_url: URL to profile photo (optional)
+        color: Hex color code for accents (default: "#0066cc")
+        style: Signature style
+        
+    Returns:
+        HTML formatted signature
+    """
+    # Default color if not provided
+    if not color:
+        color = "#0066cc" if style == "professional" else "#4CAF50" if style == "colorful" else "#333333"
+    
+    # Build signature HTML
+    html_parts = ['<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6;">']
+    
+    # Add separator
+    html_parts.append('<div style="border-top: 2px solid ' + color + '; margin: 20px 0 10px 0;"></div>')
+    
+    # Container with photo and info
+    html_parts.append('<table cellpadding="0" cellspacing="0" border="0">')
+    html_parts.append('<tr>')
+    
+    # Photo column
+    if photo_url:
+        html_parts.append('<td style="padding-right: 15px; vertical-align: top;">')
+        html_parts.append(f'<img src="{photo_url}" alt="{name}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid {color};">')
+        html_parts.append('</td>')
+    
+    # Info column
+    html_parts.append('<td style="vertical-align: top;">')
+    
+    # Name (bold and colored)
+    html_parts.append(f'<div style="font-size: 16px; font-weight: bold; color: {color}; margin-bottom: 5px;">{name}</div>')
+    
+    # Role
+    if role:
+        html_parts.append(f'<div style="font-size: 13px; color: #666; font-style: italic; margin-bottom: 3px;">{role}</div>')
+    
+    # Company
+    if company:
+        html_parts.append(f'<div style="font-size: 13px; color: #333; font-weight: 600; margin-bottom: 8px;">{company}</div>')
+    
+    # Email
+    html_parts.append(f'<div style="font-size: 13px; margin-bottom: 3px;">📧 <a href="mailto:{email}" style="color: {color}; text-decoration: none;">{email}</a></div>')
+    
+    # Phone
+    if phone:
+        html_parts.append(f'<div style="font-size: 13px;">📞 <span style="color: #333;">{phone}</span></div>')
+    
+    html_parts.append('</td>')
+    html_parts.append('</tr>')
+    html_parts.append('</table>')
+    
+    html_parts.append('</div>')
+    
+    return ''.join(html_parts)

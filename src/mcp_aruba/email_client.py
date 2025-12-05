@@ -383,12 +383,19 @@ class ArubaEmailClient:
             
             # Add signature to body if requested
             final_body = body
+            is_html_signature = False
             if use_signature:
                 from .signature import get_signature
                 signature = get_signature(signature_name)
                 if signature:
-                    final_body = f"{body}\n\n{signature}"
-                    logger.debug(f"Appended signature '{signature_name}' to email")
+                    # Check if signature is HTML
+                    if signature.strip().startswith('<'):
+                        is_html_signature = True
+                        # Convert plain body to HTML and append signature
+                        final_body = f"<div>{body.replace(chr(10), '<br>')}</div>{signature}"
+                    else:
+                        final_body = f"{body}\n\n{signature}"
+                    logger.debug(f"Appended signature '{signature_name}' to email (HTML: {is_html_signature})")
             
             # Create message
             msg = MIMEMultipart('alternative')
@@ -397,9 +404,17 @@ class ArubaEmailClient:
             msg['To'] = to
             msg['Date'] = email.utils.formatdate(localtime=True)
             
-            # Add body (with signature if appended)
-            part = MIMEText(final_body, 'plain', 'utf-8')
-            msg.attach(part)
+            # Add plain text version
+            plain_part = MIMEText(body, 'plain', 'utf-8')
+            msg.attach(plain_part)
+            
+            # Add HTML version if signature is HTML
+            if is_html_signature:
+                html_part = MIMEText(final_body, 'html', 'utf-8')
+                msg.attach(html_part)
+            elif use_signature and not is_html_signature:
+                # Replace plain text part with version including signature
+                msg.set_payload([MIMEText(final_body, 'plain', 'utf-8')])
             
             # Connect to SMTP server
             logger.info(f"Connecting to SMTP server {self.smtp_host}:{self.smtp_port}")

@@ -249,11 +249,15 @@ def set_email_signature(
     role: str | None = None,
     company: str | None = None,
     phone: str | None = None,
+    photo_url: str | None = None,
+    color: str | None = None,
+    style: str = "professional",
     signature_name: str = "default"
 ) -> dict[str, Any]:
-    """Create and save a professional email signature.
+    """Create and save a professional email signature with optional photo and colors.
     
     The signature will be automatically appended to all sent emails.
+    If photo_url or color are provided, an HTML signature will be created.
     
     Args:
         name: Full name (e.g., "Giacomo Fiorucci")
@@ -261,18 +265,33 @@ def set_email_signature(
         role: Job title/role (optional, e.g., "Software Developer")
         company: Company name (optional, e.g., "Emotion Team")
         phone: Phone number (optional, e.g., "+39 123 456 7890")
+        photo_url: URL to profile photo (optional, will be displayed as circular avatar)
+        color: Hex color code for accents (optional, e.g., "#0066cc", "#FF5722")
+        style: Signature style - "professional", "minimal", "colorful" (default: "professional")
         signature_name: Name to save signature as (default: "default")
     
     Returns:
         Confirmation with signature preview
     
-    Example:
+    Examples:
+        # Simple text signature
+        set_email_signature(
+            name="Giacomo Fiorucci",
+            email="giacomo.fiorucci@emotion-team.com",
+            role="Software Developer",
+            company="Emotion Team"
+        )
+        
+        # HTML signature with photo and custom color
         set_email_signature(
             name="Giacomo Fiorucci",
             email="giacomo.fiorucci@emotion-team.com",
             role="Software Developer",
             company="Emotion Team",
-            phone="+39 123 456 7890"
+            phone="+39 123 456 7890",
+            photo_url="https://example.com/photo.jpg",
+            color="#0066cc",
+            style="professional"
         )
     """
     try:
@@ -283,7 +302,10 @@ def set_email_signature(
             email=email,
             phone=phone,
             company=company,
-            role=role
+            role=role,
+            photo_url=photo_url,
+            color=color,
+            style=style
         )
         
         save_signature(signature, signature_name)

@@ -43,3 +43,4 @@ htmlcov/
 
 # Logs
 *.log
+~/.config/mcp_aruba/signature.json
