@@ -265,7 +265,7 @@ def set_email_signature(
         role: Job title/role (optional, e.g., "Software Developer")
         company: Company name (optional, e.g., "Emotion Team")
         phone: Phone number (optional, e.g., "+39 123 456 7890")
-        photo_url: URL to profile photo (optional, will be displayed as circular avatar)
+        photo_url: URL or local file path to profile photo (optional, auto-uploads if local file)
         color: Hex color code for accents (optional, e.g., "#0066cc", "#FF5722")
         style: Signature style - "professional", "minimal", "colorful" (default: "professional")
         signature_name: Name to save signature as (default: "default")
@@ -303,7 +303,7 @@ def set_email_signature(
             phone=phone,
             company=company,
             role=role,
-            photo_url=photo_url,
+            photo_input=photo_url,  # Will auto-upload if local file
             color=color,
             style=style
         )

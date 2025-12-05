@@ -69,6 +69,36 @@ CALDAV_USERNAME=your_email@aruba.it
 CALDAV_PASSWORD=your_password_here
 ```
 
+3. **(Optional) Set up your custom email signature:**
+
+   **Method 1: Interactive Script** (Recommended)
+   ```bash
+   # Run the interactive setup script
+   python setup_signature.py
+   ```
+   
+   The script will guide you through creating a professional signature with:
+   - 📝 Personal information (name, role, company, contacts)
+   - 🎨 Style selection (professional, minimal, colorful)
+   - 🌈 Color customization
+   - 📸 Automatic photo upload to Imgur (optional)
+
+   **Method 2: Via Claude** (Even Simpler!)
+   ```
+   After setting up Claude Desktop, just ask:
+   
+   "Create an email signature for me with name John Smith, 
+    role Software Developer, company TechCorp and color #0066cc"
+   
+   "Set up my signature with this photo: /path/to/photo.jpg"
+   
+   "Configure a minimal signature with just name and email"
+   ```
+   
+   Claude will automatically use the MCP tools to create your signature!
+
+Your signature will be automatically included in all sent emails.
+
 > **Note**: Your credentials are stored locally and never leave your machine. The MCP server runs locally and connects directly to Aruba's servers.
 
 ## Usage
@@ -340,6 +370,38 @@ With Claude Desktop, you can:
 - Organize and categorize emails automatically
 - Schedule meetings based on email conversations
 - Manage calendar conflicts and find available time slots
+
+## Email Signatures
+
+### Setting Up Your Signature
+
+Create a professional email signature with your photo using the interactive setup script:
+
+```bash
+python setup_signature.py
+```
+
+The script will guide you through:
+1. **Personal Information** - Name, role, company, email, phone, website
+2. **Style Selection** - Choose between professional, minimal, or colorful styles
+3. **Color Customization** - Set your brand colors (hex format: #1ca2c8)
+4. **Photo Upload** - Provide a local image file or URL (automatically uploaded to Imgur)
+
+### Using Signatures
+
+Once configured, your signature is automatically included in all emails sent via the `send_email` tool. You can:
+- Disable signature temporarily: `use_signature=False`
+- Create multiple signatures: Use different `signature_name` values
+- Manage via MCP tools: `set_email_signature`, `get_email_signature`, `list_email_signatures`
+
+### Signature Features
+
+- 📸 **Photo Support** - Circular avatar with customizable border
+- 🎨 **3 Styles** - Professional (recommended), Minimal, Colorful
+- 🌈 **Color Themes** - Customize colors to match your brand
+- ☁️ **Auto Upload** - Local photos automatically uploaded to Imgur
+- 📱 **Responsive** - HTML signature works across all email clients
+
 ## Tech Stack
 
 - **Python 3.10+** - Modern Python

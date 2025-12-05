@@ -16,14 +16,15 @@ Server MCP (Model Context Protocol) per accedere a email e calendario Aruba tram
 - 📧 **Elenca email** - Naviga nella casella con filtri per mittente
 - 🔍 **Cerca email** - Ricerca per oggetto/corpo con filtri data
 - 📖 **Leggi email** - Ottieni il contenuto completo
-- ✉️ **Invia email** - Invia email via SMTP con formattazione personalizzata
+- ✉️ **Invia email** - Invia email via SMTP con firma personalizzata
+- ✍️ **Firma email** - Crea firme professionali con foto e colori brand
 
 ### Calendario
 - 📅 **Crea eventi** - Crea eventi calendario con partecipanti
 - 📋 **Elenca eventi** - Visualizza eventi futuri
 - ✅ **Accetta inviti** - Accetta inviti calendario
 - ❌ **Declina inviti** - Declina inviti calendario
-- ❓ **Risposta tentativa** - Segna come forse partecipo
+- ❓ **Forse** - Rispondi "forse" agli inviti calendario
 - 🗑️ **Elimina eventi** - Rimuovi eventi dal calendario
 
 ### Generale
@@ -69,6 +70,36 @@ CALDAV_URL=https://syncdav.aruba.it/calendars/tua_email@aruba.it/
 CALDAV_USERNAME=tua_email@aruba.it
 CALDAV_PASSWORD=tua_password
 ```
+
+3. **(Opzionale) Configura la tua firma email personalizzata:**
+
+   **Metodo 1: Script Interattivo** (Consigliato)
+   ```bash
+   # Esegui lo script interattivo
+   python setup_signature.py
+   ```
+   
+   Lo script ti guiderà nella creazione di una firma professionale con:
+   - 📝 Informazioni personali (nome, ruolo, azienda, contatti)
+   - 🎨 Scelta dello stile (professional, minimal, colorful)
+   - 🌈 Personalizzazione colori
+   - 📸 Upload automatico foto su Imgur (opzionale)
+
+   **Metodo 2: Tramite Claude** (Ancora più semplice!)
+   ```
+   Dopo aver configurato Claude Desktop, chiedi direttamente:
+   
+   "Crea una firma email per me con nome Mario Rossi, 
+    ruolo Software Developer, azienda TechCorp e colore #0066cc"
+   
+   "Configura la mia firma con questa foto: /path/to/photo.jpg"
+   
+   "Imposta una firma minimal con solo nome e email"
+   ```
+   
+   Claude userà automaticamente i tool MCP per creare la tua firma!
+
+La firma verrà inclusa automaticamente in tutte le email inviate.
 
 > **Nota**: Le credenziali sono memorizzate localmente e non lasciano mai il tuo computer. Il server MCP viene eseguito localmente e si connette direttamente ai server Aruba.
 
@@ -186,12 +217,46 @@ Invia un'email via SMTP.
 - `subject` (str) - Oggetto email
 - `body` (str) - Corpo email (testo semplice)
 - `from_name` (str, default: "Giacomo Fiorucci") - Nome visualizzato mittente
+- `use_signature` (bool, default: True) - Include la firma email se configurata
+- `verify_recipient` (bool, default: True) - Verifica che l'email destinatario esista
 
 **Esempi:**
 ```
 Invia un'email a colleague@example.com ringraziando per l'aggiornamento
 Rispondi a john@example.com con lo stato del progetto
 ```
+
+**Nota sulla firma**: Se hai configurato una firma usando `setup_signature.py`, verrà automaticamente inclusa nelle email. Puoi disabilitarla temporaneamente con `use_signature=False`.
+
+#### `set_email_signature`
+Configura una firma email personalizzata.
+
+**Parametri:**
+- `name` (str) - Nome completo
+- `email` (str) - Indirizzo email
+- `role` (str, opzionale) - Ruolo/posizione
+- `company` (str, opzionale) - Nome azienda
+- `phone` (str, opzionale) - Numero di telefono
+- `website` (str, opzionale) - Sito web
+- `photo_input` (str, opzionale) - Percorso file foto o URL (upload automatico su Imgur)
+- `style` (str, default: "professional") - Stile: professional, minimal, colorful
+- `color` (str, default: "#0066cc") - Colore principale (formato esadecimale)
+- `signature_name` (str, default: "default") - Nome identificativo firma
+
+**Esempi:**
+```
+Crea una firma con il mio nome, ruolo e foto del profilo
+Configura una firma professionale con logo aziendale
+```
+
+#### `get_email_signature`
+Ottieni la firma email corrente.
+
+**Parametri:**
+- `signature_name` (str, default: "default") - Nome firma da recuperare
+
+#### `list_email_signatures`
+Elenca tutte le firme email salvate.
 
 ### Strumenti Calendario
 
@@ -254,7 +319,7 @@ Declina il meeting con commento "Mi dispiace, ho un conflitto"
 ```
 
 #### `tentative_calendar_event`
-Segna la partecipazione come tentativa (forse).
+Rispondi "forse" a un invito calendario.
 
 **Parametri:**
 - `event_uid` (str) - UID dell'evento
@@ -262,7 +327,8 @@ Segna la partecipazione come tentativa (forse).
 
 **Esempi:**
 ```
-Segna l'evento abc123@aruba.it come tentativo
+Rispondi forse all'evento abc123@aruba.it
+Segna come "forse" il meeting di domani
 Forse partecipo al meeting di domani
 ```
 

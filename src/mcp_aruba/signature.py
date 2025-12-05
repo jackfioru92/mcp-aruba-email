@@ -2,6 +2,8 @@
 
 import os
 import json
+import base64
+import requests
 from pathlib import Path
 from typing import Optional
 import logging
@@ -89,6 +91,85 @@ def list_signatures() -> dict[str, str]:
         return {}
 
 
+def upload_image_to_imgur(image_path: str, client_id: str = "546c25a59c58ad7") -> Optional[str]:
+    """Upload an image to Imgur and return the public URL.
+    
+    Uses Imgur's anonymous upload API (no account required).
+    
+    Args:
+        image_path: Path to the local image file
+        client_id: Imgur API client ID (default is a public demo key)
+        
+    Returns:
+        Public URL of uploaded image, or None if upload failed
+    """
+    try:
+        # Read image file
+        with open(image_path, 'rb') as f:
+            image_data = f.read()
+        
+        # Convert to base64
+        b64_image = base64.b64encode(image_data).decode('utf-8')
+        
+        # Upload to Imgur
+        headers = {'Authorization': f'Client-ID {client_id}'}
+        data = {'image': b64_image, 'type': 'base64'}
+        
+        response = requests.post(
+            'https://api.imgur.com/3/image',
+            headers=headers,
+            data=data,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            url = result['data']['link']
+            logger.info(f"Image uploaded successfully: {url}")
+            return url
+        else:
+            logger.error(f"Imgur upload failed: {response.status_code} - {response.text}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error uploading image: {e}")
+        return None
+
+
+def process_photo(photo_input: str) -> Optional[str]:
+    """Process photo input - either use URL directly or upload local file.
+    
+    Args:
+        photo_input: Either a URL (starts with http) or a local file path
+        
+    Returns:
+        Public URL of the photo, or None if processing failed
+    """
+    # If it's already a URL, return it
+    if photo_input.startswith('http://') or photo_input.startswith('https://'):
+        return photo_input
+    
+    # If it's a local file, upload to Imgur
+    photo_path = Path(photo_input).expanduser()
+    
+    if not photo_path.exists():
+        logger.error(f"Photo file not found: {photo_input}")
+        return None
+    
+    if not photo_path.is_file():
+        logger.error(f"Photo path is not a file: {photo_input}")
+        return None
+    
+    # Check file extension
+    valid_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+    if photo_path.suffix.lower() not in valid_extensions:
+        logger.error(f"Unsupported image format: {photo_path.suffix}")
+        return None
+    
+    logger.info(f"Uploading local photo to Imgur: {photo_input}")
+    return upload_image_to_imgur(str(photo_path))
+
+
 def delete_signature(name: str = "default") -> bool:
     """Delete a signature.
     
@@ -125,7 +206,7 @@ def delete_signature(name: str = "default") -> bool:
 
 def create_default_signature(name: str, email: str, phone: Optional[str] = None, 
                              company: Optional[str] = None, role: Optional[str] = None,
-                             photo_url: Optional[str] = None, color: Optional[str] = None,
+                             photo_input: Optional[str] = None, color: Optional[str] = None,
                              style: str = "professional") -> str:
     """Create a professional email signature.
     
@@ -135,13 +216,20 @@ def create_default_signature(name: str, email: str, phone: Optional[str] = None,
         phone: Phone number (optional)
         company: Company name (optional)
         role: Job role/title (optional)
-        photo_url: URL to profile photo (optional)
+        photo_input: URL or local file path to profile photo (optional, auto-uploads if local)
         color: Hex color code for accents (optional, e.g., "#0066cc")
         style: Signature style - "professional", "minimal", "colorful" (default: "professional")
         
     Returns:
         Formatted signature text (HTML if photo/color provided, plain text otherwise)
     """
+    # Process photo if provided (upload to Imgur if it's a local file)
+    photo_url = None
+    if photo_input:
+        photo_url = process_photo(photo_input)
+        if not photo_url:
+            logger.warning("Photo processing failed, creating signature without photo")
+    
     # If photo or color provided, create HTML signature
     if photo_url or color:
         return _create_html_signature(name, email, phone, company, role, photo_url, color, style)
@@ -203,7 +291,7 @@ def _create_html_signature(name: str, email: str, phone: Optional[str] = None,
     # Photo column
     if photo_url:
         html_parts.append('<td style="padding-right: 15px; vertical-align: top;">')
-        html_parts.append(f'<img src="{photo_url}" alt="{name}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid {color};">')
+        html_parts.append(f'<img src="{photo_url}" alt="{name}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; object-position: center 30%; border: 3px solid {color};">')
         html_parts.append('</td>')
     
     # Info column
