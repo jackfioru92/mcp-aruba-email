@@ -14,6 +14,9 @@ import sys
 from dotenv import load_dotenv
 from src.mcp_aruba.email_client import ArubaEmailClient
 
+# Placeholder values that indicate credentials aren't configured
+PLACEHOLDER_VALUES = ['your_password_here', 'your_email@aruba.it', 'tua_password', 'example.com']
+
 def print_email(email, index):
     """Stampa un'email in formato leggibile."""
     print(f"\n{'='*80}")
@@ -48,7 +51,11 @@ def demo_list_latest_emails(limit=5):
     username = os.getenv('IMAP_USERNAME')
     password = os.getenv('IMAP_PASSWORD')
     
-    if not username or not password or password == 'your_password_here':
+    # Check if credentials are valid (not None and not placeholder values)
+    is_placeholder = any(placeholder in str(password).lower() or placeholder in str(username).lower() 
+                        for placeholder in PLACEHOLDER_VALUES)
+    
+    if not username or not password or is_placeholder:
         print("⚠️  CREDENZIALI NON CONFIGURATE")
         print("\nQuesto è uno script dimostrativo.")
         print("Per vedere le tue email reali, devi:")
@@ -154,12 +161,25 @@ def demo_filter_by_sender(sender_email, limit=5):
     
     load_dotenv()
     
+    # Verifica credenziali
+    username = os.getenv('IMAP_USERNAME')
+    password = os.getenv('IMAP_PASSWORD')
+    
+    # Check if credentials are valid (not None and not placeholder values)
+    is_placeholder = any(placeholder in str(password).lower() or placeholder in str(username).lower() 
+                        for placeholder in PLACEHOLDER_VALUES)
+    
+    if not username or not password or is_placeholder:
+        print("⚠️  CREDENZIALI NON CONFIGURATE")
+        print("\nPer usare questa funzionalità, devi configurare il file .env con le tue credenziali Aruba.")
+        return
+    
     try:
         with ArubaEmailClient(
             host=os.getenv('IMAP_HOST', 'imaps.aruba.it'),
             port=int(os.getenv('IMAP_PORT', '993')),
-            username=os.getenv('IMAP_USERNAME'),
-            password=os.getenv('IMAP_PASSWORD')
+            username=username,
+            password=password
         ) as client:
             
             emails = client.list_emails(
