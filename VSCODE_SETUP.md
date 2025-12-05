@@ -5,103 +5,150 @@ This guide explains how to use the MCP Aruba Email & Calendar Server with VS Cod
 ## Prerequisites
 
 - VS Code installed
-- GitHub Copilot subscription
-- MCP Aruba server installed and configured (see [README.md](README.md))
+- GitHub Copilot subscription (with MCP support)
+- MCP Aruba server installed (see [README.md](README.md))
 
 ## Step 1: Install Copilot MCP Extension
 
+**Note**: MCP support in VS Code Copilot may require specific VS Code Insiders build or GitHub Copilot Labs. Check [VS Code MCP documentation](https://code.visualstudio.com/docs/copilot/copilot-mcp) for availability.
+
 1. Open VS Code
 2. Go to Extensions (`Cmd+Shift+X` on macOS or `Ctrl+Shift+X` on Windows/Linux)
-3. Search for **"Copilot MCP"**
-4. Click **Install** on the official extension by GitHub
-5. Wait for installation to complete
+3. Search for **"GitHub Copilot"**
+4. Ensure you have the latest version with MCP support
+5. Enable MCP in Copilot settings if needed
 
-## Step 2: Configure MCP Server
+## Step 2: Install MCP Aruba Server
 
-### Option A: Using .env file (Recommended)
+```bash
+# Clone the repository
+git clone https://github.com/jackfioru92/mcp-aruba-email.git
+cd mcp-aruba-email
 
-Create or edit `~/.vscode/mcp-settings.json`:
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-```json
-{
-  "mcpServers": {
-    "aruba-email-calendar": {
-      "command": "/Users/giacomofiorucci/Sviluppo/mcp_aruba/.venv/bin/python",
-      "args": [
-        "-m",
-        "mcp_aruba.server"
-      ],
-      "cwd": "/Users/giacomofiorucci/Sviluppo/mcp_aruba"
-    }
-  }
-}
+# Install dependencies
+pip install -e .
 ```
 
-**Note**: Replace the paths with your actual installation path. The server will automatically load credentials from the `.env` file in the project directory.
+## Step 3: Configure MCP Server for VS Code
 
-### Option B: With credentials in config
+### Configuration File Location
 
-If you prefer to specify credentials directly:
+Create the MCP configuration file at:
+- **macOS/Linux**: `~/.vscode/mcp.json`
+- **Windows**: `%USERPROFILE%\.vscode\mcp.json`
+
+### Configuration
 
 ```json
 {
   "mcpServers": {
-    "aruba-email-calendar": {
-      "command": "python",
-      "args": [
-        "-m",
-        "mcp_aruba.server"
-      ],
-      "cwd": "/path/to/mcp_aruba",
+    "aruba-email": {
+      "command": "/full/path/to/mcp-aruba-email/.venv/bin/python",
+      "args": ["-m", "mcp_aruba.server"],
       "env": {
         "IMAP_HOST": "imaps.aruba.it",
         "IMAP_PORT": "993",
         "IMAP_USERNAME": "your_email@aruba.it",
-        "IMAP_PASSWORD": "your_password",
+        "IMAP_PASSWORD": "your_password_here",
         "SMTP_HOST": "smtps.aruba.it",
         "SMTP_PORT": "465",
         "CALDAV_URL": "https://syncdav.aruba.it/calendars/your_email@aruba.it/",
         "CALDAV_USERNAME": "your_email@aruba.it",
-        "CALDAV_PASSWORD": "your_password"
+        "CALDAV_PASSWORD": "your_password_here"
       }
     }
   }
 }
 ```
 
-**⚠️ Security Warning**: Option A is more secure as credentials are not stored in the VS Code config file.
+**Important**: 
+- Replace `/full/path/to/mcp-aruba-email/` with your actual installation path
+- Replace `your_email@aruba.it` and `your_password_here` with your Aruba credentials
 
-## Step 3: Restart VS Code
+### Example (macOS)
 
-Close and reopen VS Code to load the new MCP configuration.
+```bash
+# Create directory if it doesn't exist
+mkdir -p ~/.vscode
 
-## Step 4: Use Copilot with MCP Tools
+# Create configuration file
+cat > ~/.vscode/mcp.json << 'EOF'
+{
+  "mcpServers": {
+    "aruba-email": {
+      "command": "/Users/yourusername/mcp-aruba-email/.venv/bin/python",
+      "args": ["-m", "mcp_aruba.server"],
+      "env": {
+        "IMAP_HOST": "imaps.aruba.it",
+        "IMAP_PORT": "993",
+        "IMAP_USERNAME": "giacomo@example.com",
+        "IMAP_PASSWORD": "your_password",
+        "SMTP_HOST": "smtps.aruba.it",
+        "SMTP_PORT": "465",
+        "CALDAV_URL": "https://syncdav.aruba.it/calendars/giacomo@example.com/",
+        "CALDAV_USERNAME": "giacomo@example.com",
+        "CALDAV_PASSWORD": "your_password"
+      }
+    }
+  }
+}
+EOF
+```
 
-### Open Copilot Chat
+## Step 4: Reload VS Code
 
-- Press `Cmd+I` (macOS) or `Ctrl+I` (Windows/Linux)
-- Or click the Copilot icon in the sidebar
-- Or use the Command Palette: `Copilot: Open Chat`
+After creating the configuration file:
 
-### Available Tools
+1. **Reload VS Code Window**: 
+   - Press `Cmd+Shift+P` (macOS) or `Ctrl+Shift+P` (Windows/Linux)
+   - Type "Developer: Reload Window"
+   - Press Enter
 
-Once connected, Copilot will have access to these tools:
+2. **Or restart VS Code completely**
 
-#### Email Tools (4 tools)
-- `list_emails` - List recent emails with filters
-- `read_email` - Read full email content
-- `search_emails` - Search emails by query
-- `send_email` - Send emails via SMTP
+## Step 5: Verify MCP Server Connection
 
-#### Calendar Tools (6 tools)
+Open a new Copilot chat and try:
+
+```
+"List my last 5 emails"
+```
+
+If the server is connected, Copilot will use the `list_emails` tool to fetch your emails.
+
+## Available Tools
+
+Once connected, Copilot will have access to **15 MCP tools**:
+
+### Email Tools (7)
+- `list_emails` - List recent emails with optional sender filter
+- `read_email` - Read full email content by ID
+- `search_emails` - Search emails by subject/body with date filters
+- `send_email` - Send emails via SMTP with optional signature
+- `check_bounced_emails` - Check for delivery failure notifications
+- `set_email_signature` - Create custom email signature with photo
+- `get_email_signature` - Retrieve saved signature
+- `list_email_signatures` - List all saved signatures
+
+### Calendar Tools (6)
 - `create_calendar_event` - Create events with attendees
-- `list_calendar_events` - List upcoming events
-- `accept_calendar_event` - Accept invitations
-- `decline_calendar_event` - Decline invitations
+- `list_calendar_events` - List upcoming events in date range
+- `accept_calendar_event` - Accept calendar invitations
+- `decline_calendar_event` - Decline calendar invitations
+- `tentative_calendar_event` - Respond "maybe" to invitations
+- `delete_calendar_event` - Remove events from calendar
 - `tentative_calendar_event` - Mark as tentative
 - `delete_calendar_event` - Delete events
 
 ## Example Queries
+
+### Email Examples
+
+## Usage Examples
 
 ### Email Examples
 
@@ -112,9 +159,11 @@ Once connected, Copilot will have access to these tools:
 
 "Search for emails about 'marketplace' from last week"
 
-"Send an email to team@company.com with subject 'Meeting Notes' and body 'Thanks everyone for attending'"
+"Send an email to team@company.com with subject 'Meeting Notes'"
 
-"Summarize my emails from today"
+"Create an email signature with my name and company"
+
+"Check if I have any bounced emails"
 ```
 
 ### Calendar Examples
@@ -128,82 +177,116 @@ Once connected, Copilot will have access to these tools:
 
 "Accept the calendar invitation for Friday's review"
 
-"Decline the Monday meeting with comment 'I'm on vacation'"
+"Decline the Monday meeting"
 
 "Show me all my meetings next week"
-
-"Delete the event with UID abc123@aruba.it"
-```
-
-### Combined Workflows
-
-```
-"Check my calendar for conflicts and send an email to propose alternative times"
-
-"Find emails about Q4 review and schedule a follow-up meeting"
-
-"List my meetings for next week and send a summary to my team"
 ```
 
 ## Troubleshooting
 
-### Server not connecting
+### Server Not Connecting
 
-1. Check that the Python path in `mcp-settings.json` is correct
-2. Verify the virtual environment is activated
-3. Test the server manually: `python -m mcp_aruba.server`
-4. Check VS Code Output panel for MCP logs
+1. **Check configuration file location**:
+   - macOS/Linux: `~/.vscode/mcp.json`
+   - Windows: `%USERPROFILE%\.vscode\mcp.json`
 
-### No calendars found
+2. **Verify Python path**:
+   ```bash
+   ls /path/to/mcp-aruba-email/.venv/bin/python
+   ```
 
-You need to enable CalDAV sync in Aruba Webmail:
+3. **Test server manually**:
+   ```bash
+   cd /path/to/mcp-aruba-email
+   source .venv/bin/activate
+   python -m mcp_aruba.server
+   ```
+
+4. **Check VS Code Output**:
+   - View → Output
+   - Select "MCP" or "Copilot" from dropdown
+
+5. **Reload VS Code**:
+   - Cmd/Ctrl + Shift + P → "Developer: Reload Window"
+
+### Authentication Errors
+
+- Verify email and password in `mcp.json`
+- Check for typos in credentials
+- Ensure no extra spaces in values
+- Test credentials with webmail: https://webmail.aruba.it
+
+### No Calendars Found
+
+Enable CalDAV sync in Aruba Webmail:
 
 1. Go to https://webmail.aruba.it
 2. Navigate to Calendar section
 3. Click "Sincronizza calendario" (Sync calendar)
-4. Choose "Lettura e modifica" (Read and modify) for CalDAV
-5. Select which calendars to sync
+4. Select calendars to sync
 
-### Credentials not loading
+### MCP Tools Not Available in Copilot
 
-- Ensure `.env` file exists in the project directory
-- Check that `cwd` in `mcp-settings.json` points to the correct path
-- Verify `.env` contains all required variables (see `.env.example`)
+1. **Verify MCP support**: 
+   - Check you have VS Code Insiders or latest stable with MCP support
+   - GitHub Copilot extension must support MCP
 
-### Extension not working
+2. **Check logs**:
+   - Open Command Palette (Cmd/Ctrl + Shift + P)
+   - Type "Developer: Show Logs"
+   - Look for MCP connection errors
 
-1. Restart VS Code completely
-2. Check that Copilot MCP extension is enabled
-3. Verify you have an active GitHub Copilot subscription
-4. Check VS Code's Output panel → "MCP" for error messages
+3. **Restart completely**:
+   - Quit VS Code completely
+   - Reopen VS Code
+   - Open a new Copilot chat
 
-## Configuration File Location
+## Alternative Setup Methods
 
-The MCP settings file location depends on your OS:
+### Method 1: Use Full Python Path (Recommended)
 
-- **macOS/Linux**: `~/.vscode/mcp-settings.json`
-- **Windows**: `%USERPROFILE%\.vscode\mcp-settings.json`
-
-## Quick Setup Script
-
-For quick setup on macOS/Linux, run:
-
-```bash
-mkdir -p ~/.vscode
-cat > ~/.vscode/mcp-settings.json << 'EOF'
+```json
 {
   "mcpServers": {
-    "aruba-email-calendar": {
-      "command": "/Users/YOUR_USERNAME/path/to/mcp_aruba/.venv/bin/python",
+    "aruba-email": {
+      "command": "/Users/username/mcp-aruba-email/.venv/bin/python",
       "args": ["-m", "mcp_aruba.server"],
-      "cwd": "/Users/YOUR_USERNAME/path/to/mcp_aruba"
+      "env": { ... }
     }
   }
 }
-EOF
 ```
 
-**Remember to replace the paths with your actual installation path!**
+### Method 2: Use python3 Command
+
+Only works if `mcp_aruba` is installed globally:
+
+```json
+{
+  "mcpServers": {
+    "aruba-email": {
+      "command": "python3",
+      "args": ["-m", "mcp_aruba.server"],
+      "env": { ... }
+    }
+  }
+}
+```
+
+## Security Notes
+
+- Configuration file `~/.vscode/mcp.json` contains credentials in plain text
+- Ensure the file has appropriate permissions: `chmod 600 ~/.vscode/mcp.json`
+- Consider using environment variables or password managers
+- The MCP server runs locally and connects directly to Aruba servers
+- No data is sent to third parties
+
+## Additional Resources
+
+- [Main README](README.md) - Full project documentation
+- [Claude Desktop Setup](CLAUDE_SETUP.md) - For Claude Desktop app
+- [Signature Examples](SIGNATURE_EXAMPLES.md) - Email signature guide
+- [Examples](EXAMPLES.md) - Usage examples
 
 ## Additional Resources
 
