@@ -103,6 +103,34 @@ Your signature will be automatically included in all sent emails.
 
 ## Usage
 
+### 🚀 Quick Start: View Latest Emails
+
+The fastest way to get started:
+
+```bash
+# Install dependencies
+pip install -e .
+
+# Configure credentials (copy and edit .env.example)
+cp .env.example .env
+# Edit .env with your Aruba credentials
+
+# Show latest emails
+python cli.py emails 5
+
+# Or use the demo script
+python demo_list_emails.py
+```
+
+**Want to use Claude?** After setup, simply ask:
+```
+Show me the latest 5 emails
+Give me my most recent emails
+What emails did I receive today?
+```
+
+📖 **Complete guide**: See [GUIDA_UTILIZZO_EMAIL.md](GUIDA_UTILIZZO_EMAIL.md) (Italian) for all available methods.
+
 ### Run the server directly
 
 ```bash
@@ -538,6 +566,17 @@ Contributions are welcome! Please:
 - Check Python path is correct in config
 - Restart Claude Desktop completely (Cmd+Q then reopen)
 - Check Console.app logs for error messages
+
+## Documentation
+
+- [README_EN.md](README_EN.md) - Main documentation (English)
+- [README.md](README.md) - Documentazione principale (Italiano)
+- [GUIDA_UTILIZZO_EMAIL.md](GUIDA_UTILIZZO_EMAIL.md) - **Complete guide: How to view latest emails** 📧 (Italian)
+- [EXAMPLES.md](EXAMPLES.md) - Usage examples
+- [CLAUDE_SETUP.md](CLAUDE_SETUP.md) - Claude Desktop setup
+- [VSCODE_SETUP.md](VSCODE_SETUP.md) - VS Code Copilot setup
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
+- [LICENSE](LICENSE) - MIT License
 
 ## License
 
