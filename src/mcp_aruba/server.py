@@ -239,6 +239,123 @@ def check_bounced_emails(
 
 
 # ============================================================================
+# EMAIL SIGNATURE TOOLS
+# ============================================================================
+
+@mcp.tool()
+def set_email_signature(
+    name: str,
+    email: str,
+    role: str | None = None,
+    company: str | None = None,
+    phone: str | None = None,
+    signature_name: str = "default"
+) -> dict[str, Any]:
+    """Create and save a professional email signature.
+    
+    The signature will be automatically appended to all sent emails.
+    
+    Args:
+        name: Full name (e.g., "Giacomo Fiorucci")
+        email: Email address
+        role: Job title/role (optional, e.g., "Software Developer")
+        company: Company name (optional, e.g., "Emotion Team")
+        phone: Phone number (optional, e.g., "+39 123 456 7890")
+        signature_name: Name to save signature as (default: "default")
+    
+    Returns:
+        Confirmation with signature preview
+    
+    Example:
+        set_email_signature(
+            name="Giacomo Fiorucci",
+            email="giacomo.fiorucci@emotion-team.com",
+            role="Software Developer",
+            company="Emotion Team",
+            phone="+39 123 456 7890"
+        )
+    """
+    try:
+        from .signature import create_default_signature, save_signature
+        
+        signature = create_default_signature(
+            name=name,
+            email=email,
+            phone=phone,
+            company=company,
+            role=role
+        )
+        
+        save_signature(signature, signature_name)
+        
+        logger.info(f"Saved email signature '{signature_name}'")
+        return {
+            "status": "saved",
+            "signature_name": signature_name,
+            "preview": signature
+        }
+    except Exception as e:
+        logger.error(f"Error saving signature: {e}")
+        return {"error": str(e)}
+
+
+@mcp.tool()
+def get_email_signature(signature_name: str = "default") -> dict[str, Any]:
+    """Get a saved email signature.
+    
+    Args:
+        signature_name: Name of signature to retrieve (default: "default")
+    
+    Returns:
+        Signature content or error
+    
+    Example:
+        get_email_signature()
+    """
+    try:
+        from .signature import get_signature
+        
+        signature = get_signature(signature_name)
+        
+        if signature:
+            return {
+                "signature_name": signature_name,
+                "content": signature
+            }
+        else:
+            return {
+                "error": f"Signature '{signature_name}' not found"
+            }
+    except Exception as e:
+        logger.error(f"Error getting signature: {e}")
+        return {"error": str(e)}
+
+
+@mcp.tool()
+def list_email_signatures() -> dict[str, Any]:
+    """List all saved email signatures.
+    
+    Returns:
+        Dictionary of all signatures
+    
+    Example:
+        list_email_signatures()
+    """
+    try:
+        from .signature import list_signatures
+        
+        signatures = list_signatures()
+        
+        return {
+            "count": len(signatures),
+            "signatures": signatures
+        }
+    except Exception as e:
+        logger.error(f"Error listing signatures: {e}")
+        return {"error": str(e)}
+
+
+# ============================================================================
 # CALENDAR TOOLS
 # ============================================================================
 

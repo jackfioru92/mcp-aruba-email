@@ -346,7 +346,9 @@ class ArubaEmailClient:
         body: str,
         from_name: Optional[str] = None,
         save_to_sent: bool = True,
-        verify_recipient: bool = True
+        verify_recipient: bool = True,
+        use_signature: bool = True,
+        signature_name: str = "default"
     ) -> Dict:
         """Send an email via SMTP.
         
@@ -357,6 +359,8 @@ class ArubaEmailClient:
             from_name: Optional sender display name
             save_to_sent: Whether to save a copy to the Sent folder (default: True)
             verify_recipient: Whether to verify recipient email exists before sending (default: True)
+            use_signature: Whether to append email signature (default: True)
+            signature_name: Name of the signature to use (default: "default")
             
         Returns:
             Dictionary with send status
@@ -377,6 +381,15 @@ class ArubaEmailClient:
                     logger.warning(f"Could not verify recipient: {verification['reason']}")
                     # Continue anyway but include warning
             
+            # Add signature to body if requested
+            final_body = body
+            if use_signature:
+                from .signature import get_signature
+                signature = get_signature(signature_name)
+                if signature:
+                    final_body = f"{body}\n\n{signature}"
+                    logger.debug(f"Appended signature '{signature_name}' to email")
+            
             # Create message
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
@@ -384,8 +397,8 @@ class ArubaEmailClient:
             msg['To'] = to
             msg['Date'] = email.utils.formatdate(localtime=True)
             
-            # Add body
-            part = MIMEText(body, 'plain', 'utf-8')
+            # Add body (with signature if appended)
+            part = MIMEText(final_body, 'plain', 'utf-8')
             msg.attach(part)
             
             # Connect to SMTP server
