@@ -3,6 +3,7 @@
 import imaplib
 import smtplib
 import email
+import email.utils
 from email.header import decode_header
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -253,7 +254,8 @@ class ArubaEmailClient:
         to: str,
         subject: str,
         body: str,
-        from_name: Optional[str] = None
+        from_name: Optional[str] = None,
+        save_to_sent: bool = True
     ) -> Dict:
         """Send an email via SMTP.
         
@@ -262,6 +264,7 @@ class ArubaEmailClient:
             subject: Email subject
             body: Email body (plain text)
             from_name: Optional sender display name
+            save_to_sent: Whether to save a copy to the Sent folder (default: True)
             
         Returns:
             Dictionary with send status
@@ -272,6 +275,7 @@ class ArubaEmailClient:
             msg['Subject'] = subject
             msg['From'] = f"{from_name} <{self.username}>" if from_name else self.username
             msg['To'] = to
+            msg['Date'] = email.utils.formatdate(localtime=True)
             
             # Add body
             part = MIMEText(body, 'plain', 'utf-8')
@@ -284,11 +288,29 @@ class ArubaEmailClient:
                 smtp.send_message(msg)
             
             logger.info(f"Email sent successfully to {to}")
+            
+            # Save to Sent folder if requested
+            if save_to_sent:
+                try:
+                    self._ensure_connected()
+                    # Append the message to INBOX.Sent folder
+                    self._connection.append(
+                        'INBOX.Sent',
+                        '\\Seen',
+                        imaplib.Time2Internaldate(email.utils.parsedate_to_datetime(msg['Date'])),
+                        msg.as_bytes()
+                    )
+                    logger.info("Email saved to Sent folder")
+                except Exception as e:
+                    logger.warning(f"Failed to save email to Sent folder: {e}")
+                    # Don't fail the whole operation if saving to Sent fails
+            
             return {
                 "status": "sent",
                 "to": to,
                 "subject": subject,
-                "from": msg['From']
+                "from": msg['From'],
+                "saved_to_sent": save_to_sent
             }
             
         except Exception as e:
