@@ -1,0 +1,116 @@
+{
+  "name": "mcp-aruba-email",
+  "displayName": "Aruba Email MCP Server",
+  "description": "MCP server for Aruba email and calendar via IMAP/SMTP/CalDAV. Read emails, send messages, manage calendar events, and create signatures.",
+  "version": "0.2.2",
+  "publisher": "jackfioru92",
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jackfioru92/mcp-aruba-email"
+  },
+  "engines": {
+    "vscode": "^1.101.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Other"
+  ],
+  "keywords": [
+    "mcp",
+    "aruba",
+    "email",
+    "imap",
+    "smtp",
+    "caldav",
+    "calendar",
+    "copilot",
+    "ai"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "mcp-aruba-email.configure",
+        "title": "Aruba Email: Configure Credentials"
+      },
+      {
+        "command": "mcp-aruba-email.testConnection",
+        "title": "Aruba Email: Test Connection"
+      }
+    ],
+    "configuration": {
+      "title": "Aruba Email MCP Server",
+      "properties": {
+        "mcpArubaEmail.imapHost": {
+          "type": "string",
+          "default": "imaps.aruba.it",
+          "description": "IMAP server hostname"
+        },
+        "mcpArubaEmail.imapPort": {
+          "type": "number",
+          "default": 993,
+          "description": "IMAP server port"
+        },
+        "mcpArubaEmail.smtpHost": {
+          "type": "string",
+          "default": "smtps.aruba.it",
+          "description": "SMTP server hostname"
+        },
+        "mcpArubaEmail.smtpPort": {
+          "type": "number",
+          "default": 465,
+          "description": "SMTP server port"
+        },
+        "mcpArubaEmail.emailAddress": {
+          "type": "string",
+          "default": "",
+          "description": "Your Aruba email address"
+        },
+        "mcpArubaEmail.calendarEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable CalDAV calendar integration"
+        },
+        "mcpArubaEmail.caldavUrl": {
+          "type": "string",
+          "default": "",
+          "description": "CalDAV URL (auto-generated from email if empty)"
+        }
+      }
+    },
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "aruba-email",
+        "label": "Aruba Email"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "download-api": "npx @vscode/dts dev",
+    "postdownload-api": "npx @vscode/dts main",
+    "postinstall": "npm run download-api"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.101.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vscode/dts": "^0.4.1",
+    "@vscode/vsce": "^2.19.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "keytar": "^7.9.0"
+  }
+}

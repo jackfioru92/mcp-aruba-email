@@ -44,3 +44,11 @@ htmlcov/
 # Logs
 *.log
 ~/.config/mcp_aruba/signature.json
+
+# MCP Registry tokens
+.mcpregistry_*
+
+# VS Code Extension build artifacts
+vscode-extension/node_modules/
+vscode-extension/out/
+vscode-extension/*.vsix

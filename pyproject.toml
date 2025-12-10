@@ -1,6 +1,6 @@
 [project]
 name = "mcp-aruba"
-version = "0.2.0"
+version = "0.2.1"
 description = "MCP server for Aruba email and calendar via IMAP/SMTP/CalDAV"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -20,6 +20,14 @@ dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.23.0",
 ]
+
+[project.scripts]
+mcp-aruba = "mcp_aruba.server:main"
+
+[project.urls]
+Homepage = "https://github.com/jackfioru92/mcp-aruba-email"
+Repository = "https://github.com/jackfioru92/mcp-aruba-email"
+Issues = "https://github.com/jackfioru92/mcp-aruba-email/issues"
 
 [build-system]
 requires = ["hatchling"]

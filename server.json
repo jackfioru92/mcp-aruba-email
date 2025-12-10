@@ -1,0 +1,58 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.jackfioru92/aruba-email",
+  "title": "Aruba Email & Calendar",
+  "description": "MCP server for Aruba email and calendar via IMAP/SMTP/CalDAV",
+  "repository": {
+    "url": "https://github.com/jackfioru92/mcp-aruba-email",
+    "source": "github"
+  },
+  "version": "0.2.1",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "mcp-aruba",
+      "version": "0.2.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "EMAIL_USER",
+          "description": "Your Aruba email address",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "EMAIL_PASSWORD",
+          "description": "Your Aruba email password",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "IMAP_HOST",
+          "description": "IMAP server hostname (default: imaps.aruba.it)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "SMTP_HOST",
+          "description": "SMTP server hostname (default: smtps.aruba.it)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "CALDAV_URL",
+          "description": "CalDAV server URL (default: https://calendar.aruba.it/dav.php)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # MCP Aruba Email & Calendar Server
 
+<!-- mcp-name: io.github.jackfioru92/aruba-email -->
+
 **Italiano** | [English](README_EN.md)
 
 Server MCP (Model Context Protocol) per accedere a email e calendario Aruba tramite IMAP/SMTP/CalDAV. Integra facilmente email e calendario Aruba con assistenti AI come Claude!
@@ -530,13 +532,35 @@ Vedi [CONTRIBUTING.md](CONTRIBUTING.md) per dettagli completi.
 
 ## Documentazione
 
-- [README.md](README.md) - Documentazione principale (English)
-- [README_IT.md](README_IT.md) - Documentazione in italiano
+- [README.md](README.md) - Documentazione principale (Italiano)
+- [README_EN.md](README_EN.md) - Documentation in English
 - [EXAMPLES.md](EXAMPLES.md) - Esempi d'uso
 - [CLAUDE_SETUP.md](CLAUDE_SETUP.md) - Setup Claude Desktop
-- [VSCODE_SETUP.md](VSCODE_SETUP.md) - Setup VS Code Copilot
+- [VSCODE_SETUP.md](VSCODE_SETUP.md) - Setup VS Code Copilot MCP
+- [docs/VSCODE_EXTENSION.md](docs/VSCODE_EXTENSION.md) - **Estensione VS Code Marketplace**
+- [docs/MCP_REGISTRY.md](docs/MCP_REGISTRY.md) - **Pubblicazione MCP Registry**
+- [SIGNATURE_EXAMPLES.md](SIGNATURE_EXAMPLES.md) - Esempi firme email
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Guida contribuzioni
 - [LICENSE](LICENSE) - Licenza MIT
+
+## Installazione Rapida
+
+### Da PyPI
+
+```bash
+pip install mcp-aruba
+```
+
+### Da VS Code Marketplace
+
+Cerca "MCP Aruba Email" nel marketplace VS Code o installa direttamente:
+```bash
+code --install-extension jackfioru92.mcp-aruba-email
+```
+
+### Da MCP Registry
+
+Il server è disponibile su [MCP Registry](https://mcpregistry.io/servers/io.github.jackfioru92/aruba-email)
 
 ## Supporto
 
