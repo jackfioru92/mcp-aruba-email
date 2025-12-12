@@ -107,6 +107,34 @@ La firma verrà inclusa automaticamente in tutte le email inviate.
 
 ## Utilizzo
 
+### 🚀 Inizio Rapido: Visualizza le Ultime Email
+
+Il modo più veloce per iniziare:
+
+```bash
+# Installa dipendenze
+pip install -e .
+
+# Configura credenziali (copia e modifica .env.example)
+cp .env.example .env
+# Modifica .env con le tue credenziali Aruba
+
+# Mostra le ultime email
+python cli.py emails 5
+
+# Oppure usa lo script demo
+python demo_list_emails.py
+```
+
+**Vuoi usare Claude?** Dopo la configurazione, chiedi semplicemente:
+```
+Mostrami le ultime 5 email
+Dammi le email più recenti
+Quali email ho ricevuto oggi?
+```
+
+📖 **Guida completa**: Vedi [GUIDA_UTILIZZO_EMAIL.md](GUIDA_UTILIZZO_EMAIL.md) per tutti i metodi disponibili.
+
 ### Esegui il server direttamente
 
 ```bash
@@ -534,6 +562,7 @@ Vedi [CONTRIBUTING.md](CONTRIBUTING.md) per dettagli completi.
 
 - [README.md](README.md) - Documentazione principale (Italiano)
 - [README_EN.md](README_EN.md) - Documentation in English
+- [GUIDA_UTILIZZO_EMAIL.md](GUIDA_UTILIZZO_EMAIL.md) - **Guida completa: Come vedere le ultime email** 📧
 - [EXAMPLES.md](EXAMPLES.md) - Esempi d'uso
 - [CLAUDE_SETUP.md](CLAUDE_SETUP.md) - Setup Claude Desktop
 - [VSCODE_SETUP.md](VSCODE_SETUP.md) - Setup VS Code Copilot MCP
