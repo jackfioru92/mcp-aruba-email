@@ -246,6 +246,7 @@ Invia un'email via SMTP.
 - `to` (str) - Indirizzo email destinatario
 - `subject` (str) - Oggetto email
 - `body` (str) - Corpo email (testo semplice)
+- `cc` (str, opzionale) - Indirizzi email in CC, separati da virgola
 - `from_name` (str, default: "Giacomo Fiorucci") - Nome visualizzato mittente
 - `use_signature` (bool, default: True) - Include la firma email se configurata
 - `verify_recipient` (bool, default: True) - Verifica che l'email destinatario esista
@@ -254,6 +255,7 @@ Invia un'email via SMTP.
 ```
 Invia un'email a colleague@example.com ringraziando per l'aggiornamento
 Rispondi a john@example.com con lo stato del progetto
+Invia un'email a client@example.com con CC a manager@company.com
 ```
 
 **Nota sulla firma**: Se hai configurato una firma usando `setup_signature.py`, verrà automaticamente inclusa nelle email. Puoi disabilitarla temporaneamente con `use_signature=False`.

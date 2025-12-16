@@ -467,7 +467,22 @@ Once configured, your signature is automatically included in all emails sent via
 Send an email via SMTP.
 
 **Parameters:**
-## Development
+- `to` (str) - Recipient email address
+- `subject` (str) - Email subject
+- `body` (str) - Email body (plain text)
+- `cc` (str, optional) - CC email addresses, comma-separated
+- `from_name` (str, default: "Giacomo Fiorucci") - Sender display name
+- `use_signature` (bool, default: True) - Include email signature if configured
+- `verify_recipient` (bool, default: True) - Verify recipient email exists
+
+**Examples:**
+```
+Send an email to colleague@example.com thanking for the update
+Reply to john@example.com with project status
+Send an email to client@example.com with CC to manager@company.com
+```
+
+**Signature Note**: If you have configured a signature using `setup_signature.py`, it will be automatically included in emails. You can temporarily disable it with `use_signature=False`.
 
 ### Running Tests
 
