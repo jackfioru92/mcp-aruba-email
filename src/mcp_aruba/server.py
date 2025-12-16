@@ -169,6 +169,7 @@ def send_email(
     to: str,
     subject: str,
     body: str,
+    cc: str = None,
     from_name: str = "Giacomo Fiorucci"
 ) -> dict[str, Any]:
     """Send an email via SMTP.
@@ -177,6 +178,7 @@ def send_email(
         to: Recipient email address
         subject: Email subject
         body: Email body (plain text)
+        cc: Optional CC email addresses (comma-separated)
         from_name: Sender display name (default: "Giacomo Fiorucci")
     
     Returns:
@@ -196,6 +198,7 @@ def send_email(
                 to=to,
                 subject=subject,
                 body=body,
+                cc=cc,
                 from_name=from_name
             )
             logger.info(f"Sent email to {to}: {subject}")

@@ -345,6 +345,7 @@ class ArubaEmailClient:
         subject: str,
         body: str,
         from_name: Optional[str] = None,
+        cc: Optional[str] = None,
         save_to_sent: bool = True,
         verify_recipient: bool = True,
         use_signature: bool = True,
@@ -357,6 +358,7 @@ class ArubaEmailClient:
             subject: Email subject
             body: Email body (plain text)
             from_name: Optional sender display name
+            cc: Optional CC email addresses (comma-separated)
             save_to_sent: Whether to save a copy to the Sent folder (default: True)
             verify_recipient: Whether to verify recipient email exists before sending (default: True)
             use_signature: Whether to append email signature (default: True)
@@ -402,6 +404,8 @@ class ArubaEmailClient:
             msg['Subject'] = subject
             msg['From'] = f"{from_name} <{self.username}>" if from_name else self.username
             msg['To'] = to
+            if cc:
+                msg['Cc'] = cc
             msg['Date'] = email.utils.formatdate(localtime=True)
             
             # Add plain text version
@@ -420,7 +424,11 @@ class ArubaEmailClient:
             logger.info(f"Connecting to SMTP server {self.smtp_host}:{self.smtp_port}")
             with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port) as smtp:
                 smtp.login(self.username, self.password)
-                smtp.send_message(msg)
+                # Prepare recipients list
+                recipients = [to]
+                if cc:
+                    recipients.extend([addr.strip() for addr in cc.split(',')])
+                smtp.send_message(msg, to_addrs=recipients)
             
             logger.info(f"Email sent successfully to {to}")
             
@@ -447,6 +455,8 @@ class ArubaEmailClient:
                 "from": msg['From'],
                 "saved_to_sent": save_to_sent
             }
+            if cc:
+                result["cc"] = cc
             
             if verify_recipient:
                 result["verification"] = verification
