@@ -9,8 +9,33 @@ Server MCP (Model Context Protocol) per accedere a email e calendario Aruba tram
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-1.2.0+-green.svg)](https://modelcontextprotocol.io/)
+[![VS Code Extension](https://img.shields.io/badge/VS%20Code-Extension-blue.svg)](https://marketplace.visualstudio.com/items?itemName=jackfioru92.mcp-aruba-email)
 
-**Italiano** | [English](README.md)
+## 📦 Come Installare
+
+### Opzione 1: Estensione VS Code (Più Semplice) ⭐
+
+Per usare con **GitHub Copilot** in VS Code:
+
+1. Installa l'estensione dal [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=jackfioru92.mcp-aruba-email)
+2. Configura le credenziali con `⌘+Shift+P` → **"Aruba Email: Configure Credentials"**
+3. Usa direttamente in Copilot Chat!
+
+📖 [Guida completa estensione VS Code](docs/VSCODE_EXTENSION.md)
+
+### Opzione 2: Da Smithery (Registro MCP) 🔍
+
+Per usare con `@mcp aruba` in VS Code o altri client MCP:
+
+1. Il server è disponibile su [Smithery](https://smithery.ai/server/io.github.jackfioru92/aruba-email)
+2. In VS Code Copilot Chat, digita `@mcp aruba` e segui le istruzioni
+3. Oppure installa da CLI: `smithery install io.github.jackfioru92/aruba-email`
+
+[![Smithery](https://smithery.ai/badge/io.github.jackfioru92/aruba-email)](https://smithery.ai/server/io.github.jackfioru92/aruba-email)
+
+### Opzione 3: Installazione Manuale (Per Claude Desktop)
+
+Per usare con **Claude Desktop**:
 
 ## Funzionalità
 
@@ -34,22 +59,7 @@ Server MCP (Model Context Protocol) per accedere a email e calendario Aruba tram
 - ⚡ **Veloce** - Gestione efficiente delle connessioni con context manager
 - 🤖 **Pronto per AI** - Funziona perfettamente con Claude Desktop e altri client MCP
 
-## Installazione
-
-```bash
-# Clona il repository
-git clone https://github.com/jackfioru92/mcp-aruba-email.git
-cd mcp-aruba-email
-
-# Crea ambiente virtuale
-python -m venv .venv
-source .venv/bin/activate  # Su Windows: .venv\Scripts\activate
-
-# Installa dipendenze
-pip install -e .
-```
-
-## Configurazione
+## Configurazione (Solo per Installazione Manuale)
 
 1. Copia `.env.example` in `.env`:
 ```bash
