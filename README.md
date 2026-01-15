@@ -7,9 +7,12 @@
 Server MCP (Model Context Protocol) per accedere a email e calendario Aruba tramite IMAP/SMTP/CalDAV. Integra facilmente email e calendario Aruba con assistenti AI come Claude!
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![PyPI version](https://badge.fury.io/py/mcp-aruba.svg)](https://badge.fury.io/py/mcp-aruba)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-1.2.0+-green.svg)](https://modelcontextprotocol.io/)
-[![VS Code Extension](https://img.shields.io/badge/VS%20Code-Extension-blue.svg)](https://marketplace.visualstudio.com/items?itemName=jackfioru92.mcp-aruba-email)
+[![VS Code Extension](https://img.shields.io/visual-studio-marketplace/v/jackfioru92.mcp-aruba-email)](https://marketplace.visualstudio.com/items?itemName=jackfioru92.mcp-aruba-email)
+[![Downloads](https://img.shields.io/visual-studio-marketplace/d/jackfioru92.mcp-aruba-email)](https://marketplace.visualstudio.com/items?itemName=jackfioru92.mcp-aruba-email)
+[![GitHub stars](https://img.shields.io/github/stars/jackfioru92/mcp-aruba-email?style=social)](https://github.com/jackfioru92/mcp-aruba-email)
 
 ## 📦 Come Installare
 
