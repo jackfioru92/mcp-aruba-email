@@ -48,6 +48,14 @@ htmlcov/
 # MCP Registry tokens
 .mcpregistry_*
 
+# Internal/Work files (not for public repo)
+SOCIAL_MEDIA_POSTS.md
+QUICK_WINS.md
+ROADMAP.md
+SMITHERY_PUBLISH_CHECKLIST.md
+SOLUZIONE_MCP_ARUBA.md
+verify_smithery_ready.py
+
 # VS Code Extension build artifacts
 vscode-extension/node_modules/
 vscode-extension/out/
