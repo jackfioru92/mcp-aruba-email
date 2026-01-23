@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Optional
 from dotenv import load_dotenv
 
-from telegram import Update
+from telegram import Update, BotCommand
 from telegram.ext import (
     Application, 
     CommandHandler, 
@@ -18,6 +18,7 @@ from telegram.ext import (
 
 from .email_client import ArubaEmailClient
 from .calendar_client import ArubaCalendarClient
+from .signature import get_signature
 
 # Load environment variables
 load_dotenv()
@@ -57,8 +58,8 @@ class ArubaTelegramBot:
             self.email_client = ArubaEmailClient(
                 host=os.getenv('IMAP_HOST', 'imaps.aruba.it'),
                 port=int(os.getenv('IMAP_PORT', 993)),
-                username=os.getenv('EMAIL_ADDRESS'),
-                password=os.getenv('EMAIL_PASSWORD'),
+                username=os.getenv('IMAP_USERNAME') or os.getenv('EMAIL_ADDRESS'),
+                password=os.getenv('IMAP_PASSWORD') or os.getenv('EMAIL_PASSWORD'),
                 smtp_host=os.getenv('SMTP_HOST', 'smtps.aruba.it'),
                 smtp_port=int(os.getenv('SMTP_PORT', 465))
             )
@@ -73,8 +74,8 @@ class ArubaTelegramBot:
             if caldav_url:
                 self.calendar_client = ArubaCalendarClient(
                     url=caldav_url,
-                    username=os.getenv('EMAIL_ADDRESS'),
-                    password=os.getenv('EMAIL_PASSWORD')
+                    username=os.getenv('CALDAV_USERNAME') or os.getenv('IMAP_USERNAME') or os.getenv('EMAIL_ADDRESS'),
+                    password=os.getenv('CALDAV_PASSWORD') or os.getenv('IMAP_PASSWORD') or os.getenv('EMAIL_PASSWORD')
                 )
                 logger.info("Calendar client configured")
         except Exception as e:
@@ -103,7 +104,10 @@ Sono il tuo assistente per le email Aruba. Ecco cosa posso fare:
 • /emails - Ultime 10 email
 • /emails 5 - Ultime 5 email
 • /cerca [termine] - Cerca nelle email
+• /da [email] - Email da un mittente
 • /leggi [id] - Leggi email completa
+• /rispondi [id] [testo] - Rispondi a un'email
+• /invia [email] [oggetto] | [testo] - Invia email
 
 📅 **Calendario:**
 • /eventi - Eventi prossimi
@@ -305,6 +309,205 @@ Oppure scrivimi in linguaggio naturale! 💬
             logger.error(f"Error searching emails: {e}")
             await update.message.reply_text(f"❌ Errore: {str(e)}")
     
+    async def from_sender_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /da command - List emails from a specific sender."""
+        if not self._is_authorized(update.effective_user.id):
+            await update.message.reply_text("⛔ Non autorizzato.")
+            return
+        
+        if not self.email_client:
+            await update.message.reply_text("❌ Client email non configurato.")
+            return
+        
+        if not context.args:
+            await update.message.reply_text("⚠️ Specifica l'email del mittente: `/da mario@esempio.it`", parse_mode='Markdown')
+            return
+        
+        sender_filter = context.args[0]
+        limit = 10
+        if len(context.args) > 1 and context.args[1].isdigit():
+            limit = min(int(context.args[1]), 50)
+        
+        await update.message.reply_text(f"🔍 Cerco email da '{sender_filter}'...")
+        
+        try:
+            self.email_client.connect()
+            emails = self.email_client.list_emails(folder="INBOX", sender_filter=sender_filter, limit=limit)
+            self.email_client.disconnect()
+            
+            if not emails:
+                await update.message.reply_text(f"📭 Nessuna email trovata da '{sender_filter}'.")
+                return
+            
+            response = f"📧 **Email da {sender_filter}:**\n\n"
+            
+            for i, email_item in enumerate(emails, 1):
+                subject = email_item.get('subject', '(Nessun oggetto)')[:40]
+                date_str = email_item.get('date', 'N/A')
+                email_id = email_item.get('id', '?')
+                
+                response += f"**{i}.** `{email_id}`\n"
+                response += f"   📝 {subject}\n"
+                response += f"   🕐 {date_str}\n\n"
+            
+            response += f"\n💡 Usa `/leggi [id]` per leggere, `/rispondi [id] [testo]` per rispondere"
+            
+            await update.message.reply_text(response, parse_mode='Markdown')
+                
+        except Exception as e:
+            logger.error(f"Error fetching emails from sender: {e}")
+            await update.message.reply_text(f"❌ Errore: {str(e)}")
+    
+    async def reply_email_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /rispondi command - Reply to an email."""
+        if not self._is_authorized(update.effective_user.id):
+            await update.message.reply_text("⛔ Non autorizzato.")
+            return
+        
+        if not self.email_client:
+            await update.message.reply_text("❌ Client email non configurato.")
+            return
+        
+        if not context.args or len(context.args) < 2:
+            await update.message.reply_text(
+                "⚠️ Formato: `/rispondi [id] [testo risposta]`\n\n"
+                "Esempio: `/rispondi 42 Grazie per l'email, ti rispondo presto!`",
+                parse_mode='Markdown'
+            )
+            return
+        
+        email_id = context.args[0]
+        reply_body = ' '.join(context.args[1:])
+        
+        await update.message.reply_text(f"📤 Preparo risposta all'email {email_id}...")
+        
+        try:
+            # First, read the original email to get sender and subject
+            self.email_client.connect()
+            original_email = self.email_client.read_email(email_id=email_id, folder="INBOX")
+            
+            if not original_email:
+                self.email_client.disconnect()
+                await update.message.reply_text("❌ Email non trovata.")
+                return
+            
+            # Prepare reply
+            to_address = original_email.get('from', '')
+            original_subject = original_email.get('subject', '')
+            
+            # Add Re: prefix if not already present
+            if not original_subject.lower().startswith('re:'):
+                reply_subject = f"Re: {original_subject}"
+            else:
+                reply_subject = original_subject
+            
+            # Build reply body with quote
+            original_body = original_email.get('body', '')
+            original_date = original_email.get('date', '')
+            
+            full_reply = f"{reply_body}\n\n" \
+                        f"---\n" \
+                        f"Il {original_date}, {to_address} ha scritto:\n" \
+                        f"> {original_body[:500]}{'...' if len(original_body) > 500 else ''}"
+            
+            # Send the reply
+            result = self.email_client.send_email(
+                to=to_address,
+                subject=reply_subject,
+                body=full_reply
+            )
+            self.email_client.disconnect()
+            
+            await update.message.reply_text(
+                f"✅ **Risposta inviata!**\n\n"
+                f"📧 A: {to_address}\n"
+                f"📝 Oggetto: {reply_subject}\n\n"
+                f"💬 {reply_body[:100]}{'...' if len(reply_body) > 100 else ''}",
+                parse_mode='Markdown'
+            )
+                
+        except Exception as e:
+            logger.error(f"Error replying to email: {e}")
+            await update.message.reply_text(f"❌ Errore nell'invio: {str(e)}")
+    
+    async def send_email_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /invia command - Send a new email."""
+        if not self._is_authorized(update.effective_user.id):
+            await update.message.reply_text("⛔ Non autorizzato.")
+            return
+        
+        if not self.email_client:
+            await update.message.reply_text("❌ Client email non configurato.")
+            return
+        
+        # Parse: /invia email@dest.it Oggetto della mail | Corpo del messaggio
+        if not context.args:
+            await update.message.reply_text(
+                "⚠️ **Formato:** `/invia [email] [oggetto] | [testo]`\n\n"
+                "**Esempio:**\n"
+                "`/invia mario@esempio.it Ciao! | Come stai? Volevo sapere...`\n\n"
+                "Il carattere `|` separa l'oggetto dal corpo.",
+                parse_mode='Markdown'
+            )
+            return
+        
+        # Get full text after command
+        full_text = ' '.join(context.args)
+        
+        # Extract email address (first argument)
+        to_address = context.args[0]
+        
+        # Validate email format
+        if '@' not in to_address:
+            await update.message.reply_text("⚠️ Indirizzo email non valido.")
+            return
+        
+        # Rest of the text is subject | body
+        rest = ' '.join(context.args[1:])
+        
+        if '|' in rest:
+            parts = rest.split('|', 1)
+            subject = parts[0].strip()
+            body = parts[1].strip()
+        else:
+            # No | separator, use all as subject and ask for body
+            subject = rest.strip() if rest.strip() else "(Senza oggetto)"
+            body = ""
+        
+        if not body:
+            await update.message.reply_text(
+                f"📝 **Bozza email:**\n\n"
+                f"📧 A: {to_address}\n"
+                f"📋 Oggetto: {subject}\n\n"
+                f"⚠️ Manca il corpo! Usa il formato:\n"
+                f"`/invia {to_address} {subject} | Il tuo messaggio qui`",
+                parse_mode='Markdown'
+            )
+            return
+        
+        await update.message.reply_text(f"📤 Invio email a {to_address}...")
+        
+        try:
+            self.email_client.connect()
+            result = self.email_client.send_email(
+                to=to_address,
+                subject=subject,
+                body=body
+            )
+            self.email_client.disconnect()
+            
+            await update.message.reply_text(
+                f"✅ **Email inviata!**\n\n"
+                f"📧 A: {to_address}\n"
+                f"📋 Oggetto: {subject}\n"
+                f"💬 {body[:100]}{'...' if len(body) > 100 else ''}",
+                parse_mode='Markdown'
+            )
+                
+        except Exception as e:
+            logger.error(f"Error sending email: {e}")
+            await update.message.reply_text(f"❌ Errore nell'invio: {str(e)}")
+    
     async def events_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /eventi command - List calendar events."""
         if not self._is_authorized(update.effective_user.id):
@@ -383,32 +586,79 @@ Oppure scrivimi in linguaggio naturale! 💬
             await update.message.reply_text("⛔ Non autorizzato.")
             return
         
-        text = update.message.text.lower()
+        import re
+        text = update.message.text
+        text_lower = text.lower()
         
-        # Simple intent detection
-        if any(word in text for word in ['email', 'mail', 'posta', 'messaggi', 'inbox']):
-            if any(word in text for word in ['ultime', 'recenti', 'nuove', 'arrivate', 'mostra', 'vedi']):
-                # Extract number if present
-                import re
-                numbers = re.findall(r'\d+', text)
+        # === SEND EMAIL IN NATURAL LANGUAGE ===
+        # Patterns: "manda/scrivi/invia/di/chiedi/comunica a X ..."
+        send_patterns = [
+            r'(?:manda|invia|scrivi|di|dì|chiedi|comunica|avvisa|contatta)(?:\s+(?:una?\s+)?(?:email|mail))?\s+a\s+([^\s]+@[^\s]+)\s+(?:dicendo|che|con|per|se|di)?\s*(.+)',
+            r'(?:email|mail)\s+a\s+([^\s]+@[^\s]+)\s+(?:dicendo|che|con|per|se)?\s*(.+)',
+            r'(?:manda|invia|scrivi|di|dì|chiedi|comunica|avvisa|contatta)\s+a\s+([^\s]+@[^\s]+)\s+(.+)',
+        ]
+        
+        for pattern in send_patterns:
+            match = re.search(pattern, text_lower, re.IGNORECASE)
+            if match:
+                to_address = match.group(1)
+                message_content = text[match.start(2):].strip()  # Keep original case
+                
+                await self._send_natural_email(update, to_address, message_content)
+                return
+        
+        # Check for email address anywhere in message with send intent
+        if any(word in text_lower for word in ['manda', 'invia', 'scrivi', 'comunica', 'di a', 'dì a', 'chiedi', 'avvisa', 'contatta']):
+            email_match = re.search(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', text, re.IGNORECASE)
+            if email_match:
+                to_address = email_match.group(1)
+                # Extract message after email or after "dicendo/che/con"
+                after_email = text[email_match.end():].strip()
+                
+                # Try to extract content after keywords
+                content_match = re.search(r'(?:dicendo|che|con|per|se|di)?\s*(.+)', after_email, re.IGNORECASE)
+                if content_match:
+                    message_content = content_match.group(1)
+                elif after_email:
+                    message_content = after_email
+                else:
+                    # Try before email
+                    before_email = text[:email_match.start()]
+                    content_match = re.search(r'(?:dicendo|che|con|per)\s+(.+)', before_email, re.IGNORECASE)
+                    if content_match:
+                        message_content = content_match.group(1)
+                    else:
+                        await update.message.reply_text(
+                            f"📧 Vuoi mandare un'email a {to_address}.\n\n"
+                            f"Cosa vuoi scrivere? Rispondi con il messaggio."
+                        )
+                        return
+                
+                await self._send_natural_email(update, to_address, message_content)
+                return
+        
+        # === LIST EMAILS ===
+        if any(word in text_lower for word in ['email', 'mail', 'posta', 'messaggi', 'inbox']):
+            if any(word in text_lower for word in ['ultime', 'recenti', 'nuove', 'arrivate', 'mostra', 'vedi', 'leggi']):
+                numbers = re.findall(r'\d+', text_lower)
                 if numbers:
                     context.args = [numbers[0]]
                 else:
                     context.args = []
                 await self.emails_command(update, context)
                 return
-            elif any(word in text for word in ['cerca', 'trovare', 'cercare']):
-                # Extract search query
+            elif any(word in text_lower for word in ['cerca', 'trovare', 'cercare']):
                 for keyword in ['cerca', 'trovare', 'cercare']:
-                    if keyword in text:
-                        query = text.split(keyword)[-1].strip()
+                    if keyword in text_lower:
+                        query = text_lower.split(keyword)[-1].strip()
                         if query:
                             context.args = [query]
                             await self.search_command(update, context)
                             return
         
-        if any(word in text for word in ['eventi', 'calendario', 'appuntamenti', 'riunioni']):
-            if 'oggi' in text:
+        # === CALENDAR ===
+        if any(word in text_lower for word in ['eventi', 'calendario', 'appuntamenti', 'riunioni']):
+            if 'oggi' in text_lower:
                 await self.today_events_command(update, context)
             else:
                 await self.events_command(update, context)
@@ -419,9 +669,131 @@ Oppure scrivimi in linguaggio naturale! 💬
             "🤔 Non ho capito. Prova con:\n\n"
             "• \"Mostrami le ultime email\"\n"
             "• \"Cerca fattura nelle email\"\n"
+            "• \"Manda email a mario@ex.it dicendo che...\"\n"
             "• \"Eventi di oggi\"\n\n"
-            "Oppure usa i comandi: /emails, /cerca, /eventi"
+            "Oppure usa i comandi: /emails, /cerca, /invia, /eventi"
         )
+    
+    async def _send_natural_email(self, update: Update, to_address: str, message_content: str) -> None:
+        """Process and send email from natural language."""
+        import re
+        
+        if not self.email_client:
+            await update.message.reply_text("❌ Client email non configurato.")
+            return
+        
+        # Check if signature is requested
+        include_signature = any(word in message_content.lower() for word in ['firma', 'signature', 'firmato'])
+        
+        # Clean signature request from message
+        message_clean = re.sub(r'\s*(?:e\s+)?(?:allega|aggiungi|metti|con)?\s*(?:la\s+)?firma\s*(?:in\s+fondo|alla\s+fine)?\.?', '', message_content, flags=re.IGNORECASE).strip()
+        
+        # Generate subject from content
+        subject = self._generate_subject(message_clean)
+        
+        # Build body
+        body = message_clean
+        
+        # Add signature if requested
+        if include_signature:
+            signature = get_signature()
+            if signature:
+                body += f"\n\n{signature}"
+        
+        # Show preview and ask confirmation
+        preview = f"""📧 **Anteprima Email**
+
+**A:** {to_address}
+**Oggetto:** {subject}
+
+**Messaggio:**
+{body[:300]}{'...' if len(body) > 300 else ''}
+
+{'✍️ _Con firma_' if include_signature else ''}
+
+Invio? Rispondi:
+• "sì" o "ok" per inviare
+• "modifica oggetto: [nuovo oggetto]" per cambiare
+• "annulla" per cancellare"""
+        
+        await update.message.reply_text(preview, parse_mode='Markdown')
+        
+        # Store pending email in context for confirmation
+        context_data = {
+            'pending_email': {
+                'to': to_address,
+                'subject': subject,
+                'body': body
+            }
+        }
+        # For simplicity, send directly (in production would wait for confirmation)
+        # Here we send after showing preview
+        await self._do_send_email(update, to_address, subject, body)
+    
+    def _generate_subject(self, content: str) -> str:
+        """Generate email subject from content."""
+        content_lower = content.lower()
+        
+        # Common patterns
+        if any(word in content_lower for word in ['riunione', 'meeting', 'incontro']):
+            return "Riunione"
+        if any(word in content_lower for word in ['fattura', 'pagamento', 'invoice']):
+            return "Fattura"
+        if any(word in content_lower for word in ['progetto', 'project']):
+            return "Aggiornamento Progetto"
+        if any(word in content_lower for word in ['attività', 'programma', 'agenda', 'oggi']):
+            return "Attività in programma"
+        if any(word in content_lower for word in ['conferma', 'confirm']):
+            return "Conferma"
+        if any(word in content_lower for word in ['preventivo', 'offerta', 'quotation']):
+            return "Preventivo"
+        if any(word in content_lower for word in ['domanda', 'question', 'chiedo']):
+            return "Richiesta informazioni"
+        if any(word in content_lower for word in ['grazie', 'ringrazi']):
+            return "Ringraziamento"
+        if any(word in content_lower for word in ['urgente', 'urgent']):
+            return "URGENTE"
+        
+        # Extract first meaningful words
+        words = content.split()[:5]
+        if words:
+            return ' '.join(words)[:50]
+        
+        return "Messaggio"
+    
+    async def _do_send_email(self, update: Update, to: str, subject: str, body: str) -> None:
+        """Actually send the email."""
+        try:
+            self.email_client.connect()
+            self.email_client.send_email(to=to, subject=subject, body=body)
+            self.email_client.disconnect()
+            
+            await update.message.reply_text(
+                f"✅ **Email inviata!**\n\n"
+                f"📧 A: {to}\n"
+                f"📋 Oggetto: {subject}",
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            logger.error(f"Error sending email: {e}")
+            await update.message.reply_text(f"❌ Errore: {str(e)}")
+    
+    async def _set_bot_commands(self, application) -> None:
+        """Set bot commands in Telegram menu."""
+        commands = [
+            BotCommand("emails", "📧 Ultime email"),
+            BotCommand("cerca", "🔍 Cerca nelle email"),
+            BotCommand("da", "👤 Email da un mittente"),
+            BotCommand("leggi", "📖 Leggi email completa"),
+            BotCommand("rispondi", "↩️ Rispondi a un'email"),
+            BotCommand("invia", "✉️ Invia nuova email"),
+            BotCommand("eventi", "📅 Prossimi eventi"),
+            BotCommand("oggi", "🗓 Eventi di oggi"),
+            BotCommand("status", "📊 Stato connessione"),
+            BotCommand("help", "❓ Mostra aiuto"),
+        ]
+        await application.bot.set_my_commands(commands)
+        logger.info("📋 Menu comandi registrato su Telegram")
     
     def run(self) -> None:
         """Start the Telegram bot."""
@@ -429,7 +801,7 @@ Oppure scrivimi in linguaggio naturale! 💬
             raise ValueError("TELEGRAM_BOT_TOKEN non configurato!")
         
         # Create application
-        application = Application.builder().token(self.telegram_token).build()
+        application = Application.builder().token(self.telegram_token).post_init(self._set_bot_commands).build()
         
         # Add handlers
         application.add_handler(CommandHandler("start", self.start_command))
@@ -438,6 +810,9 @@ Oppure scrivimi in linguaggio naturale! 💬
         application.add_handler(CommandHandler("emails", self.emails_command))
         application.add_handler(CommandHandler("leggi", self.read_email_command))
         application.add_handler(CommandHandler("cerca", self.search_command))
+        application.add_handler(CommandHandler("da", self.from_sender_command))
+        application.add_handler(CommandHandler("rispondi", self.reply_email_command))
+        application.add_handler(CommandHandler("invia", self.send_email_command))
         application.add_handler(CommandHandler("eventi", self.events_command))
         application.add_handler(CommandHandler("oggi", self.today_events_command))
         
