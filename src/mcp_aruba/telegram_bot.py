@@ -3,6 +3,7 @@
 import os
 import asyncio
 import logging
+import json
 from datetime import datetime
 from typing import Optional
 from dotenv import load_dotenv
@@ -28,6 +29,21 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
+
+# Try to import OpenAI (also works with Ollama via compatible API)
+try:
+    from openai import OpenAI
+    HAS_OPENAI = True
+except ImportError:
+    HAS_OPENAI = False
+
+# Try to import ollama
+try:
+    import ollama
+    HAS_OLLAMA = True
+except ImportError:
+    HAS_OLLAMA = False
+    
 logger = logging.getLogger(__name__)
 
 
@@ -49,8 +65,42 @@ class ArubaTelegramBot:
         self.email_client: Optional[ArubaEmailClient] = None
         self.calendar_client: Optional[ArubaCalendarClient] = None
         
+        # Pending emails waiting for confirmation (user_id -> email_data)
+        self.pending_emails: dict = {}
+        
+        # LLM client for AI interpretation (Ollama or OpenAI)
+        self.llm_type = None  # 'ollama' or 'openai'
+        self.openai_client = None
+        self.ollama_model = None
+        self._setup_llm()
+        
         self._setup_email_client()
         self._setup_calendar_client()
+    
+    def _setup_llm(self) -> None:
+        """Setup LLM client for AI interpretation (Ollama preferred, OpenAI fallback)."""
+        # Try Ollama first (free, local)
+        if HAS_OLLAMA:
+            self.ollama_model = os.getenv('OLLAMA_MODEL', 'llama3.2:1b')
+            try:
+                # Test connection
+                ollama.list()
+                self.llm_type = 'ollama'
+                logger.info(f"Ollama configured with model {self.ollama_model} - AI interpretation enabled (FREE)")
+                return
+            except Exception as e:
+                logger.warning(f"Ollama not available: {e}")
+        
+        # Fallback to OpenAI
+        if HAS_OPENAI:
+            api_key = os.getenv('OPENAI_API_KEY')
+            if api_key:
+                self.openai_client = OpenAI(api_key=api_key)
+                self.llm_type = 'openai'
+                logger.info("OpenAI client configured - AI interpretation enabled")
+                return
+        
+        logger.warning("No LLM available - using basic interpretation")
     
     def _setup_email_client(self) -> None:
         """Setup email client from environment variables."""
@@ -225,7 +275,7 @@ Oppure scrivimi in linguaggio naturale! 💬
             return
         
         if not context.args:
-            await update.message.reply_text("⚠️ Specifica l'ID email: `/leggi 123`", parse_mode='Markdown')
+            await update.message.reply_text("⚠️ Specifica l'ID email: /leggi 123")
             return
         
         email_id = context.args[0]
@@ -241,26 +291,28 @@ Oppure scrivimi in linguaggio naturale! 💬
                 await update.message.reply_text("❌ Email non trovata.")
                 return
             
-            response = f"📧 **Email {email_id}**\n\n"
-            response += f"**Da:** {email_content.get('from', 'N/A')}\n"
-            response += f"**A:** {email_content.get('to', 'N/A')}\n"
-            response += f"**Oggetto:** {email_content.get('subject', 'N/A')}\n"
-            response += f"**Data:** {email_content.get('date', 'N/A')}\n"
-            response += f"\n{'─'*30}\n\n"
+            # Build header (safe text)
+            header = f"📧 Email {email_id}\n\n"
+            header += f"Da: {email_content.get('from', 'N/A')}\n"
+            header += f"A: {email_content.get('to', 'N/A')}\n"
+            header += f"Oggetto: {email_content.get('subject', 'N/A')}\n"
+            header += f"Data: {email_content.get('date', 'N/A')}\n"
+            header += f"\n{'─'*30}\n\n"
             
             body = email_content.get('body', '(Nessun contenuto)')
             # Limit body length for Telegram
             if len(body) > 3000:
                 body = body[:3000] + "\n\n... (troncato)"
-            response += body
             
-            # Split if too long
+            response = header + body
+            
+            # Split if too long - NO Markdown to avoid parsing errors
             if len(response) > 4000:
                 chunks = [response[i:i+4000] for i in range(0, len(response), 4000)]
                 for chunk in chunks:
-                    await update.message.reply_text(chunk, parse_mode='Markdown')
+                    await update.message.reply_text(chunk)
             else:
-                await update.message.reply_text(response, parse_mode='Markdown')
+                await update.message.reply_text(response)
                 
         except Exception as e:
             logger.error(f"Error reading email: {e}")
@@ -580,6 +632,31 @@ Oppure scrivimi in linguaggio naturale! 💬
             logger.error(f"Error fetching today's events: {e}")
             await update.message.reply_text(f"❌ Errore: {str(e)}")
     
+    def _resolve_contact(self, name: str) -> Optional[str]:
+        """Resolve contact name to email address."""
+        # Contact book - add your frequent contacts here!
+        contacts = {
+            # Nome -> email
+            'christopher': 'christopher.caponi@emotion-team.com',
+            'christopher caponi': 'christopher.caponi@emotion-team.com',
+            'chris': 'christopher.caponi@emotion-team.com',
+            'caponi': 'christopher.caponi@emotion-team.com',
+            # Add more contacts as needed
+        }
+        
+        name_lower = name.lower().strip()
+        
+        # Direct match
+        if name_lower in contacts:
+            return contacts[name_lower]
+        
+        # Partial match
+        for contact_name, email in contacts.items():
+            if contact_name in name_lower or name_lower in contact_name:
+                return email
+        
+        return None
+    
     async def natural_language_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle natural language messages."""
         if not self._is_authorized(update.effective_user.id):
@@ -588,54 +665,120 @@ Oppure scrivimi in linguaggio naturale! 💬
         
         import re
         text = update.message.text
-        text_lower = text.lower()
+        text_lower = text.lower().strip()
+        user_id = update.effective_user.id
+        
+        # === CHECK FOR PENDING EMAIL CONFIRMATION ===
+        if user_id in self.pending_emails:
+            pending = self.pending_emails[user_id]
+            
+            # Confirm send
+            if text_lower in ['sì', 'si', 'yes', 'ok', 'invia', 'manda', 'conferma', 'vai']:
+                await self._do_send_email(update, pending['to'], pending['subject'], pending['body'])
+                del self.pending_emails[user_id]
+                return
+            
+            # Cancel
+            if text_lower in ['no', 'annulla', 'cancel', 'cancella', 'stop']:
+                del self.pending_emails[user_id]
+                await update.message.reply_text("❌ Email annullata.")
+                return
+            
+            # Modify message
+            if text_lower.startswith('modifica:') or text_lower.startswith('cambia:'):
+                new_body = text.split(':', 1)[1].strip()
+                if new_body:
+                    pending['body'] = new_body
+                    pending['subject'] = self._generate_subject(new_body)
+                    
+                    preview = f"""📧 **Email Modificata**
+
+**A:** {pending['to']}
+**Oggetto:** {pending['subject']}
+
+**Messaggio:**
+{pending['body']}
+
+❓ **Confermi l'invio?** (sì/no)"""
+                    await update.message.reply_text(preview, parse_mode='Markdown')
+                    return
+            
+            # Modify subject
+            if text_lower.startswith('oggetto:'):
+                new_subject = text.split(':', 1)[1].strip()
+                if new_subject:
+                    pending['subject'] = new_subject
+                    await update.message.reply_text(f"✏️ Oggetto cambiato in: {new_subject}\n\nConfermi l'invio? (sì/no)")
+                    return
+            
+            # If not a confirmation command, ask again
+            await update.message.reply_text(
+                "⚠️ Hai un'email in attesa!\n\n"
+                "• \"sì\" per inviare\n"
+                "• \"no\" per annullare\n"
+                "• \"modifica: [nuovo testo]\" per cambiare"
+            )
+            return
         
         # === SEND EMAIL IN NATURAL LANGUAGE ===
-        # Patterns: "manda/scrivi/invia/di/chiedi/comunica a X ..."
-        send_patterns = [
-            r'(?:manda|invia|scrivi|di|dì|chiedi|comunica|avvisa|contatta)(?:\s+(?:una?\s+)?(?:email|mail))?\s+a\s+([^\s]+@[^\s]+)\s+(?:dicendo|che|con|per|se|di)?\s*(.+)',
-            r'(?:email|mail)\s+a\s+([^\s]+@[^\s]+)\s+(?:dicendo|che|con|per|se)?\s*(.+)',
-            r'(?:manda|invia|scrivi|di|dì|chiedi|comunica|avvisa|contatta)\s+a\s+([^\s]+@[^\s]+)\s+(.+)',
-        ]
         
-        for pattern in send_patterns:
-            match = re.search(pattern, text_lower, re.IGNORECASE)
-            if match:
-                to_address = match.group(1)
-                message_content = text[match.start(2):].strip()  # Keep original case
-                
-                await self._send_natural_email(update, to_address, message_content)
-                return
+        # First check if there's a send intent
+        send_keywords = ['manda', 'invia', 'scrivi', 'comunica', 'di a', 'dì a', 'chiedi', 'avvisa', 'contatta', 
+                         'digli', 'dille', 'chiedigli', 'chiedile', 'avvisalo', 'avvisala', 'contattalo', 'contattala']
+        has_send_intent = any(word in text_lower for word in send_keywords)
         
-        # Check for email address anywhere in message with send intent
-        if any(word in text_lower for word in ['manda', 'invia', 'scrivi', 'comunica', 'di a', 'dì a', 'chiedi', 'avvisa', 'contatta']):
+        if has_send_intent:
+            # Try to find email address first
             email_match = re.search(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', text, re.IGNORECASE)
+            
             if email_match:
                 to_address = email_match.group(1)
-                # Extract message after email or after "dicendo/che/con"
-                after_email = text[email_match.end():].strip()
+                # Extract message (everything that's not the email and not the command words)
+                message_content = re.sub(r'(?:manda|invia|scrivi|di|dì|chiedi|comunica|avvisa|contatta)(?:\s+(?:una?\s+)?(?:email|mail))?\s+a\s+', '', text, flags=re.IGNORECASE)
+                message_content = re.sub(re.escape(to_address), '', message_content).strip()
                 
-                # Try to extract content after keywords
-                content_match = re.search(r'(?:dicendo|che|con|per|se|di)?\s*(.+)', after_email, re.IGNORECASE)
-                if content_match:
-                    message_content = content_match.group(1)
-                elif after_email:
-                    message_content = after_email
-                else:
-                    # Try before email
-                    before_email = text[:email_match.start()]
-                    content_match = re.search(r'(?:dicendo|che|con|per)\s+(.+)', before_email, re.IGNORECASE)
-                    if content_match:
-                        message_content = content_match.group(1)
-                    else:
-                        await update.message.reply_text(
-                            f"📧 Vuoi mandare un'email a {to_address}.\n\n"
-                            f"Cosa vuoi scrivere? Rispondi con il messaggio."
-                        )
+                if message_content:
+                    await self._send_natural_email(update, to_address, message_content)
+                    return
+            
+            # No email found - try to resolve contact name
+            # Pattern: "manda/scrivi a [NOME] [messaggio]" or "digli/dille che..."
+            
+            # First try "digli/dille" patterns (without "a")
+            digli_match = re.search(r'(?:digli|dille|chiedigli|chiedile|avvisalo|avvisala)\s+(?:che\s+|se\s+|di\s+)?(.+)', text, re.IGNORECASE)
+            if digli_match:
+                # Need to find who - check if there's a name before
+                name_match = re.search(r'(?:a\s+)?([a-zA-Z]+(?:\s+[a-zA-Z]+)?)\s+(?:digli|dille|chiedigli|chiedile)', text, re.IGNORECASE)
+                if name_match:
+                    contact_name = name_match.group(1).strip()
+                    message_content = digli_match.group(1).strip()
+                    resolved_email = self._resolve_contact(contact_name)
+                    if resolved_email:
+                        interpreted_message = self._interpret_message(message_content)
+                        await self._send_natural_email(update, resolved_email, interpreted_message)
                         return
+            
+            contact_match = re.search(r'(?:manda|invia|scrivi|di|dì|chiedi|comunica|avvisa|contatta)(?:\s+(?:una?\s+)?(?:email|mail))?\s+a\s+([^,\.!?\n]+?)(?:\s+(?:che|dicendo|per|se)\s+|\s+)(.+)', text, re.IGNORECASE)
+            
+            if contact_match:
+                contact_name = contact_match.group(1).strip()
+                message_content = contact_match.group(2).strip()
                 
-                await self._send_natural_email(update, to_address, message_content)
-                return
+                # Try to resolve contact
+                resolved_email = self._resolve_contact(contact_name)
+                
+                if resolved_email:
+                    interpreted_message = self._interpret_message(message_content)
+                    await self._send_natural_email(update, resolved_email, interpreted_message)
+                    return
+                else:
+                    await update.message.reply_text(
+                        f"📇 Non conosco '{contact_name}'.\n\n"
+                        f"Scrivi l'indirizzo email completo:\n"
+                        f"`manda email a nome@esempio.it {message_content}`",
+                        parse_mode='Markdown'
+                    )
+                    return
         
         # === LIST EMAILS ===
         if any(word in text_lower for word in ['email', 'mail', 'posta', 'messaggi', 'inbox']):
@@ -683,16 +826,23 @@ Oppure scrivimi in linguaggio naturale! 💬
             return
         
         # Check if signature is requested
-        include_signature = any(word in message_content.lower() for word in ['firma', 'signature', 'firmato'])
+        include_signature = any(word in message_content.lower() for word in ['firma', 'signature', 'firmato', 'in calce'])
         
-        # Clean signature request from message
-        message_clean = re.sub(r'\s*(?:e\s+)?(?:allega|aggiungi|metti|con)?\s*(?:la\s+)?firma\s*(?:in\s+fondo|alla\s+fine)?\.?', '', message_content, flags=re.IGNORECASE).strip()
-        
-        # Generate subject from content
-        subject = self._generate_subject(message_clean)
-        
-        # Build body
-        body = message_clean
+        # Use AI to interpret the message if available
+        if self.openai_client:
+            await update.message.reply_text("🤖 Interpreto il messaggio...")
+            interpreted = await self._ai_interpret_email(message_content, to_address)
+            if interpreted:
+                subject = interpreted.get('subject', 'Messaggio')
+                body = interpreted.get('body', message_content)
+            else:
+                # Fallback to basic interpretation
+                body = self._interpret_message(message_content)
+                subject = self._generate_subject(body)
+        else:
+            # Basic interpretation
+            body = self._interpret_message(message_content)
+            subject = self._generate_subject(body)
         
         # Add signature if requested
         if include_signature:
@@ -707,28 +857,148 @@ Oppure scrivimi in linguaggio naturale! 💬
 **Oggetto:** {subject}
 
 **Messaggio:**
-{body[:300]}{'...' if len(body) > 300 else ''}
+{body}
 
 {'✍️ _Con firma_' if include_signature else ''}
 
-Invio? Rispondi:
-• "sì" o "ok" per inviare
-• "modifica oggetto: [nuovo oggetto]" per cambiare
-• "annulla" per cancellare"""
+❓ **Confermi l'invio?**
+• Rispondi "sì" o "ok" per inviare
+• Rispondi "no" o "annulla" per cancellare
+• Rispondi "modifica: [nuovo testo]" per cambiare"""
         
         await update.message.reply_text(preview, parse_mode='Markdown')
         
-        # Store pending email in context for confirmation
-        context_data = {
-            'pending_email': {
-                'to': to_address,
-                'subject': subject,
-                'body': body
-            }
+        # Store pending email for confirmation
+        user_id = update.effective_user.id
+        self.pending_emails[user_id] = {
+            'to': to_address,
+            'subject': subject,
+            'body': body
         }
-        # For simplicity, send directly (in production would wait for confirmation)
-        # Here we send after showing preview
-        await self._do_send_email(update, to_address, subject, body)
+        logger.info(f"Email in attesa di conferma per user {user_id}")
+    
+    async def _ai_interpret_email(self, user_message: str, recipient_email: str) -> Optional[dict]:
+        """Use AI to interpret user message into a proper email."""
+        if not self.llm_type:
+            return None
+        
+        try:
+            # Get recipient name from email
+            recipient_name = recipient_email.split('@')[0].replace('.', ' ').title()
+            
+            prompt = f"""Sei un assistente che trasforma messaggi informali in email professionali ma amichevoli.
+
+L'utente vuole mandare un'email a {recipient_name} ({recipient_email}).
+
+Messaggio dell'utente: "{user_message}"
+
+Trasforma questo in un'email appropriata. Interpreta il significato:
+- "se sta bene" = chiedi come sta
+- "se ci va di vederci" = proponi un incontro
+- "digli di..." = comunica qualcosa
+- Aggiungi un saluto iniziale appropriato (Ciao, Buongiorno, etc.)
+- Mantieni un tono amichevole ma professionale
+
+Rispondi SOLO con un JSON valido in questo formato:
+{{"subject": "oggetto breve e descrittivo", "body": "corpo dell'email completo"}}
+
+Non aggiungere altro testo, solo il JSON."""
+
+            result_text = None
+            
+            if self.llm_type == 'ollama':
+                # Use Ollama (free, local)
+                response = ollama.chat(
+                    model=self.ollama_model,
+                    messages=[
+                        {"role": "system", "content": "Sei un assistente che genera email. Rispondi solo con JSON valido."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    options={"temperature": 0.7}
+                )
+                result_text = response['message']['content'].strip()
+                
+            elif self.llm_type == 'openai':
+                # Use OpenAI
+                response = self.openai_client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": "Sei un assistente che genera email. Rispondi solo con JSON valido."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=500,
+                    temperature=0.7
+                )
+                result_text = response.choices[0].message.content.strip()
+            
+            if not result_text:
+                return None
+            
+            # Parse JSON response
+            # Clean up potential markdown code blocks
+            if result_text.startswith('```'):
+                result_text = result_text.split('```')[1]
+                if result_text.startswith('json'):
+                    result_text = result_text[4:]
+            result_text = result_text.strip()
+            
+            result = json.loads(result_text)
+            logger.info(f"AI interpreted email ({self.llm_type}): {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error in AI interpretation: {e}")
+            return None
+    
+    def _interpret_message(self, raw_message: str) -> str:
+        """Interpret shorthand message into proper email text."""
+        import re
+        msg = raw_message.strip()
+        msg_lower = msg.lower()
+        
+        # Start with greeting if not present
+        has_greeting = any(word in msg_lower for word in ['ciao', 'buongiorno', 'buonasera', 'salve', 'hey', 'hi'])
+        
+        result_parts = []
+        
+        if not has_greeting:
+            result_parts.append("Ciao!")
+        
+        # Interpret common patterns
+        # "se sta bene" -> "Come stai?"
+        if 'se sta bene' in msg_lower or 'come sta' in msg_lower or 'sta bene' in msg_lower:
+            result_parts.append("Come stai?")
+            msg = re.sub(r'se\s+sta\s+bene|come\s+sta|sta\s+bene', '', msg, flags=re.IGNORECASE).strip()
+        
+        # "se ci va di vederci" -> "Ti va di vederci?"
+        if 'se ci va di vederci' in msg_lower or 'vederci' in msg_lower:
+            result_parts.append("Ti va di vederci?")
+            msg = re.sub(r'se\s+ci\s+va\s+di\s+vederci|ci\s+va\s+di\s+vederci|vederci', '', msg, flags=re.IGNORECASE).strip()
+        
+        # "se può" -> "Potresti..."
+        if 'se può' in msg_lower or 'se puoi' in msg_lower:
+            msg = re.sub(r'se\s+può|se\s+puoi', 'Potresti', msg, flags=re.IGNORECASE)
+        
+        # "digli di" -> remove, it's a command
+        msg = re.sub(r'^\s*(?:digli|dille|chiedigli|chiedile)\s+(?:che\s+|se\s+|di\s+)?', '', msg, flags=re.IGNORECASE).strip()
+        
+        # Clean up punctuation
+        msg = re.sub(r'[,;]\s*[,;]', ',', msg)  # Remove duplicate punctuation
+        msg = re.sub(r'\s+', ' ', msg).strip()  # Clean whitespace
+        
+        # Add remaining message if any
+        if msg and not msg.isspace():
+            # Capitalize first letter
+            msg = msg[0].upper() + msg[1:] if len(msg) > 1 else msg.upper()
+            # Add period if no punctuation at end
+            if msg and msg[-1] not in '.!?':
+                msg += '.'
+            result_parts.append(msg)
+        
+        # Join all parts
+        result = '\n\n'.join(result_parts) if result_parts else raw_message
+        
+        return result
     
     def _generate_subject(self, content: str) -> str:
         """Generate email subject from content."""
