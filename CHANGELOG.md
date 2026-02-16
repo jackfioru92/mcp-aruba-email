@@ -7,11 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-02-16
+
 ### Added
-- Roadmap per miglioramenti futuri
-- Template per issue e PR
-- Badge aggiuntivi nel README
-- Documentazione per pubblicazione Smithery
+- Conversione HTML-to-text per email più leggibili usando `html2text`
+- Dipendenza `html2text>=2024.2.26`
+
+### Changed
+- `_parse_email()` ora preferisce conversione HTML rispetto a text/plain auto-generato
+- Email newsletter e transazionali ora mostrano testo pulito senza artefatti tabelle
+
+### Fixed
+- Risolto problema email HTML illeggibili con tag raw e layout tabelle
 
 ## [0.2.1] - 2025-01-15
 

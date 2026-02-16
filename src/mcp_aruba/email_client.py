@@ -10,8 +10,29 @@ from email.mime.multipart import MIMEMultipart
 from typing import List, Dict, Optional
 from datetime import datetime
 import logging
+import html2text
 
 logger = logging.getLogger(__name__)
+
+
+def _html_to_text(html_content: str) -> str:
+    """Convert HTML to readable plain text using html2text.
+    
+    Args:
+        html_content: HTML string to convert
+        
+    Returns:
+        Clean, readable plain text with Markdown-style formatting
+    """
+    h = html2text.HTML2Text()
+    h.ignore_images = True
+    h.ignore_emphasis = False
+    h.body_width = 0          # No line wrapping
+    h.protect_links = True
+    h.unicode_snob = True
+    h.ignore_tables = True    # Strip layout-table markup, keep cell text
+    h.single_line_break = True  # Reduce excessive blank lines
+    return h.handle(html_content).strip()
 
 
 class ArubaEmailClient:
@@ -94,22 +115,41 @@ class ArubaEmailClient:
         """
         msg = email.message_from_bytes(email_data)
         
-        # Extract body
-        body = ""
+        # Extract body - collect both plain text and HTML parts
+        plain_body = ""
+        html_body = ""
+        
         if msg.is_multipart():
             for part in msg.walk():
                 content_type = part.get_content_type()
-                if content_type == "text/plain":
-                    try:
-                        body = part.get_payload(decode=True).decode('utf-8', errors='replace')
-                        break
-                    except Exception:
+                try:
+                    payload = part.get_payload(decode=True)
+                    if payload is None:
                         continue
+                    decoded = payload.decode('utf-8', errors='replace')
+                except Exception:
+                    continue
+                if content_type == "text/html" and not html_body:
+                    html_body = decoded
+                elif content_type == "text/plain" and not plain_body:
+                    plain_body = decoded
         else:
             try:
-                body = msg.get_payload(decode=True).decode('utf-8', errors='replace')
+                raw = msg.get_payload(decode=True).decode('utf-8', errors='replace')
             except Exception:
-                body = str(msg.get_payload())
+                raw = str(msg.get_payload())
+            if msg.get_content_type() == "text/html":
+                html_body = raw
+            else:
+                plain_body = raw
+        
+        # Prefer converted HTML (cleaner); fall back to plain text
+        if html_body:
+            body = _html_to_text(html_body)
+        elif plain_body:
+            body = plain_body
+        else:
+            body = ""
         
         return {
             "from": self._decode_header(msg.get("From", "")),
