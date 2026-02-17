@@ -1,12 +1,15 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
-import * as keytar from 'keytar';
 
-const SERVICE_NAME = 'mcp-aruba-email';
-const ACCOUNT_NAME = 'email-password';
+const PASSWORD_KEY = 'aruba-email-password';
+const IMGUR_KEY = 'aruba-imgur-client-id';
+
+let secretStorage: vscode.SecretStorage;
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('MCP Aruba Email extension is activating...');
+    
+    // Use VS Code's built-in SecretStorage API
+    secretStorage = context.secrets;
     
     const didChangeEmitter = new vscode.EventEmitter<void>();
 
@@ -106,11 +109,11 @@ async function configureCredentials(context: vscode.ExtensionContext): Promise<v
     const caldavUrl = `https://syncdav.aruba.it/calendars/${emailAddress}/`;
     await config.update('caldavUrl', caldavUrl, vscode.ConfigurationTarget.Global);
 
-    // Store password securely using keytar
+    // Store password securely using VS Code SecretStorage
     try {
-        await keytar.setPassword(SERVICE_NAME, ACCOUNT_NAME, password);
+        await secretStorage.store(PASSWORD_KEY, password);
         if (imgurClientId) {
-            await keytar.setPassword(SERVICE_NAME, 'imgur-client-id', imgurClientId);
+            await secretStorage.store(IMGUR_KEY, imgurClientId);
         }
         vscode.window.showInformationMessage('Aruba Email credentials saved successfully!');
     } catch (error) {
@@ -127,7 +130,7 @@ async function testConnection(context: vscode.ExtensionContext): Promise<void> {
         return;
     }
 
-    const password = await keytar.getPassword(SERVICE_NAME, ACCOUNT_NAME);
+    const password = await secretStorage.get(PASSWORD_KEY);
     if (!password) {
         vscode.window.showWarningMessage('Password not found. Please configure credentials.');
         return;
@@ -149,7 +152,7 @@ async function getMcpServerDefinitions(context: vscode.ExtensionContext): Promis
         return [];
     }
 
-    const password = await keytar.getPassword(SERVICE_NAME, ACCOUNT_NAME);
+    const password = await secretStorage.get(PASSWORD_KEY);
     if (!password) {
         console.log('Aruba Email: No password stored, skipping MCP server');
         return [];
@@ -163,7 +166,7 @@ async function getMcpServerDefinitions(context: vscode.ExtensionContext): Promis
     const calendarEnabled = config.get<boolean>('calendarEnabled') ?? true;
 
     // Get optional Imgur client ID
-    const imgurClientId = await keytar.getPassword(SERVICE_NAME, 'imgur-client-id') || '';
+    const imgurClientId = await secretStorage.get(IMGUR_KEY) || '';
 
     // Environment variables for the Python server
     const env: Record<string, string> = {

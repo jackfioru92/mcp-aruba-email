@@ -2,7 +2,7 @@
   "name": "mcp-aruba-email",
   "displayName": "Aruba Email MCP Server",
   "description": "MCP server for Aruba email and calendar via IMAP/SMTP/CalDAV. Read emails, send messages, manage calendar events, and create signatures.",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "publisher": "jackfioru92",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -109,8 +109,5 @@
     "@vscode/vsce": "^2.19.0",
     "eslint": "^8.57.0",
     "typescript": "^5.9.2"
-  },
-  "dependencies": {
-    "keytar": "^7.9.0"
   }
 }
