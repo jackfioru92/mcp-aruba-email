@@ -104,6 +104,40 @@ class ArubaEmailClient:
                 decoded_parts.append(str(part))
         return ''.join(decoded_parts)
 
+    def _extract_attachments_info(self, msg) -> List[Dict]:
+        """Extract attachment information from email message.
+        
+        Args:
+            msg: Email message object
+            
+        Returns:
+            List of attachment info dictionaries
+        """
+        attachments = []
+        
+        if not msg.is_multipart():
+            return attachments
+        
+        for idx, part in enumerate(msg.walk()):
+            content_disposition = str(part.get("Content-Disposition", ""))
+            
+            # Check if this part is an attachment
+            if "attachment" in content_disposition or "inline" in content_disposition:
+                filename = part.get_filename()
+                if filename:
+                    filename = self._decode_header(filename)
+                    content_type = part.get_content_type()
+                    size = len(part.get_payload(decode=True) or b"")
+                    
+                    attachments.append({
+                        "index": idx,
+                        "filename": filename,
+                        "content_type": content_type,
+                        "size": size
+                    })
+        
+        return attachments
+
     def _parse_email(self, email_data: bytes) -> Dict:
         """Parse email data into structured format.
         
@@ -151,12 +185,16 @@ class ArubaEmailClient:
         else:
             body = ""
         
+        # Extract attachment info
+        attachments = self._extract_attachments_info(msg)
+        
         return {
             "from": self._decode_header(msg.get("From", "")),
             "to": self._decode_header(msg.get("To", "")),
             "subject": self._decode_header(msg.get("Subject", "")),
             "date": msg.get("Date", ""),
-            "body": body[:5000]  # Limit body to 5000 chars to avoid huge responses
+            "body": body[:5000],  # Limit body to 5000 chars to avoid huge responses
+            "attachments": attachments
         }
 
     def list_emails(
@@ -232,6 +270,120 @@ class ArubaEmailClient:
             
         except Exception as e:
             logger.error(f"Error reading email: {e}")
+            raise
+
+    def get_email_attachments(
+        self,
+        email_id: str,
+        folder: str = "INBOX"
+    ) -> List[Dict]:
+        """Get list of attachments for an email.
+        
+        Args:
+            email_id: Email ID to get attachments from
+            folder: Mail folder
+            
+        Returns:
+            List of attachment info dictionaries
+        """
+        self._ensure_connected()
+        
+        try:
+            self._connection.select(folder)
+            status, msg_data = self._connection.fetch(email_id.encode(), "(RFC822)")
+            
+            if status != "OK":
+                raise Exception(f"Failed to fetch email {email_id}")
+            
+            msg = email.message_from_bytes(msg_data[0][1])
+            return self._extract_attachments_info(msg)
+            
+        except Exception as e:
+            logger.error(f"Error getting attachments: {e}")
+            raise
+
+    def download_attachment(
+        self,
+        email_id: str,
+        attachment_index: int,
+        folder: str = "INBOX"
+    ) -> Dict:
+        """Download a specific attachment from an email.
+        
+        Args:
+            email_id: Email ID
+            attachment_index: Index of attachment (from get_email_attachments)
+            folder: Mail folder
+            
+        Returns:
+            Dictionary with filename, content_type, and base64 encoded data
+        """
+        import base64
+        
+        self._ensure_connected()
+        
+        try:
+            self._connection.select(folder)
+            status, msg_data = self._connection.fetch(email_id.encode(), "(RFC822)")
+            
+            if status != "OK":
+                raise Exception(f"Failed to fetch email {email_id}")
+            
+            msg = email.message_from_bytes(msg_data[0][1])
+            
+            if not msg.is_multipart():
+                raise Exception("Email has no attachments")
+            
+            current_idx = 0
+            for part in msg.walk():
+                content_disposition = str(part.get("Content-Disposition", ""))
+                
+                if "attachment" in content_disposition or "inline" in content_disposition:
+                    filename = part.get_filename()
+                    if filename:
+                        if current_idx == attachment_index:
+                            data = part.get_payload(decode=True)
+                            return {
+                                "filename": self._decode_header(filename),
+                                "content_type": part.get_content_type(),
+                                "size": len(data),
+                                "data_base64": base64.b64encode(data).decode('utf-8')
+                            }
+                        current_idx += 1
+            
+            raise Exception(f"Attachment index {attachment_index} not found")
+            
+        except Exception as e:
+            logger.error(f"Error downloading attachment: {e}")
+            raise
+
+    def get_raw_email(
+        self,
+        email_id: str,
+        folder: str = "INBOX"
+    ) -> str:
+        """Get raw email in RFC822 format (for .eml export).
+        
+        Args:
+            email_id: Email ID
+            folder: Mail folder
+            
+        Returns:
+            Raw email content as string (RFC822 format)
+        """
+        self._ensure_connected()
+        
+        try:
+            self._connection.select(folder)
+            status, msg_data = self._connection.fetch(email_id.encode(), "(RFC822)")
+            
+            if status != "OK":
+                raise Exception(f"Failed to fetch email {email_id}")
+            
+            return msg_data[0][1].decode('utf-8', errors='replace')
+            
+        except Exception as e:
+            logger.error(f"Error getting raw email: {e}")
             raise
 
     def search_emails(

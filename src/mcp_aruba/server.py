@@ -165,6 +165,106 @@ def search_emails(
 
 
 @mcp.tool()
+def get_email_attachments(
+    email_id: str,
+    folder: str = "INBOX"
+) -> list[dict[str, Any]]:
+    """Get list of attachments for a specific email.
+    
+    Args:
+        email_id: Email ID (from list_emails or search_emails)
+        folder: Mail folder (default: INBOX)
+    
+    Returns:
+        List of attachments with index, filename, content_type, and size
+    
+    Example:
+        get_email_attachments(email_id="123")
+    """
+    try:
+        with _get_email_client() as client:
+            attachments = client.get_email_attachments(
+                email_id=email_id,
+                folder=folder
+            )
+            logger.info(f"Found {len(attachments)} attachments in email {email_id}")
+            return attachments
+    except Exception as e:
+        logger.error(f"Error getting attachments: {e}")
+        return [{"error": str(e)}]
+
+
+@mcp.tool()
+def download_attachment(
+    email_id: str,
+    attachment_index: int,
+    folder: str = "INBOX"
+) -> dict[str, Any]:
+    """Download a specific attachment from an email.
+    
+    Args:
+        email_id: Email ID
+        attachment_index: Index of attachment (from get_email_attachments, starting at 0)
+        folder: Mail folder (default: INBOX)
+    
+    Returns:
+        Dictionary with filename, content_type, size, and data_base64 (base64 encoded content)
+    
+    Example:
+        download_attachment(email_id="123", attachment_index=0)
+    
+    Note:
+        The attachment content is returned as base64 encoded string in 'data_base64' field.
+        You can decode it and save to file.
+    """
+    try:
+        with _get_email_client() as client:
+            attachment = client.download_attachment(
+                email_id=email_id,
+                attachment_index=attachment_index,
+                folder=folder
+            )
+            logger.info(f"Downloaded attachment '{attachment['filename']}' from email {email_id}")
+            return attachment
+    except Exception as e:
+        logger.error(f"Error downloading attachment: {e}")
+        return {"error": str(e)}
+
+
+@mcp.tool()
+def get_raw_email(
+    email_id: str,
+    folder: str = "INBOX"
+) -> dict[str, Any]:
+    """Get raw email content in RFC822 format for .eml export.
+    
+    Args:
+        email_id: Email ID
+        folder: Mail folder (default: INBOX)
+    
+    Returns:
+        Dictionary with raw_content (RFC822 format string)
+    
+    Example:
+        get_raw_email(email_id="123")
+    
+    Note:
+        Save the raw_content to a .eml file to export the email.
+    """
+    try:
+        with _get_email_client() as client:
+            raw_content = client.get_raw_email(
+                email_id=email_id,
+                folder=folder
+            )
+            logger.info(f"Retrieved raw email {email_id}")
+            return {"raw_content": raw_content}
+    except Exception as e:
+        logger.error(f"Error getting raw email: {e}")
+        return {"error": str(e)}
+
+
+@mcp.tool()
 def send_email(
     to: str,
     subject: str,

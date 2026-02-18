@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-02-18
+
+### Added
+- Supporto completo per allegati email:
+  - `get_email_attachments()` - Lista allegati di un'email
+  - `download_attachment()` - Scarica allegato specifico (base64)
+  - `get_raw_email()` - Esporta email in formato .eml (RFC822)
+- Le email ora mostrano informazioni sugli allegati (filename, size, content_type)
+
+### Changed
+- Migliorati messaggi di errore per calendario CalDAV
+- Istruzioni chiare per abilitare CalDAV su Aruba Webmail
+
+### Fixed
+- Errore "Not connected to calendar" ora mostra istruzioni per risolvere
+- Messaggi di errore calendario più descrittivi
+
 ## [0.2.2] - 2026-02-16
 
 ### Added

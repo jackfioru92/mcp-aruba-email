@@ -46,8 +46,12 @@ class ArubaCalendarClient:
             if not calendars:
                 logger.warning("No calendars found. Calendar sync may not be enabled.")
                 logger.info("To enable: Log into Aruba Webmail → Calendar → 'Sincronizza calendario' → Choose CalDAV")
-                # Don't raise exception, just log warning
-                return
+                raise Exception(
+                    "No calendars found on your Aruba account. "
+                    "To enable CalDAV sync: Log into Aruba Webmail → Calendar → "
+                    "'Sincronizza calendario' → Enable CalDAV synchronization. "
+                    "Make sure CALDAV_URL is set correctly (e.g., https://syncdav.aruba.it/calendars/user@domain.com/)"
+                )
             
             # Use the first calendar by default
             self.calendar = calendars[0]
@@ -71,6 +75,17 @@ class ArubaCalendarClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
         self.disconnect()
+    
+    def _ensure_calendar_connected(self):
+        """Check if calendar is connected and raise descriptive error if not."""
+        if not self.calendar:
+            raise Exception(
+                "Calendar not connected. This could be because: "
+                "1) CalDAV sync is not enabled on your Aruba account, "
+                "2) CALDAV_URL is not correctly configured. "
+                "To enable calendar sync: Log into Aruba Webmail → Calendar → "
+                "'Sincronizza calendario' → Enable CalDAV synchronization."
+            )
     
     def create_event(
         self,
@@ -96,7 +111,7 @@ class ArubaCalendarClient:
             Dict with event details including UID
         """
         if not self.calendar:
-            raise Exception("Not connected to calendar. Call connect() first.")
+            self._ensure_calendar_connected()
         
         # Create iCalendar event
         cal = Calendar()
@@ -165,7 +180,7 @@ class ArubaCalendarClient:
             List of event dictionaries
         """
         if not self.calendar:
-            raise Exception("Not connected to calendar. Call connect() first.")
+            self._ensure_calendar_connected()
         
         # Default date range
         if start_date is None:
@@ -234,7 +249,7 @@ class ArubaCalendarClient:
             CalDAV event object or None if not found
         """
         if not self.calendar:
-            raise Exception("Not connected to calendar. Call connect() first.")
+            self._ensure_calendar_connected()
         
         try:
             # Search all events and find by UID
@@ -275,7 +290,7 @@ class ArubaCalendarClient:
             Dict with response status
         """
         if not self.calendar:
-            raise Exception("Not connected to calendar. Call connect() first.")
+            self._ensure_calendar_connected()
         
         if response.upper() not in ['ACCEPTED', 'DECLINED', 'TENTATIVE']:
             raise ValueError("Response must be 'ACCEPTED', 'DECLINED', or 'TENTATIVE'")
@@ -351,7 +366,7 @@ class ArubaCalendarClient:
             Dict with deletion status
         """
         if not self.calendar:
-            raise Exception("Not connected to calendar. Call connect() first.")
+            self._ensure_calendar_connected()
         
         try:
             caldav_event = self.get_event_by_uid(event_uid)
