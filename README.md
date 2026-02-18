@@ -45,9 +45,11 @@ Per usare con **Claude Desktop**:
 ### Email
 - 📧 **Elenca email** - Naviga nella casella con filtri per mittente
 - 🔍 **Cerca email** - Ricerca per oggetto/corpo con filtri data
-- 📖 **Leggi email** - Ottieni il contenuto completo
+- 📖 **Leggi email** - Ottieni il contenuto completo (HTML convertito in testo pulito)
 - ✉️ **Invia email** - Invia email via SMTP con firma personalizzata
 - ✍️ **Firma email** - Crea firme professionali con foto e colori brand
+- 📎 **Allegati** - Lista e scarica allegati email (PDF, immagini, documenti)
+- 💾 **Esporta .eml** - Esporta email in formato RFC822 per backup
 
 ### Calendario
 - 📅 **Crea eventi** - Crea eventi calendario con partecipanti

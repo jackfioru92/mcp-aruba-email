@@ -15,8 +15,10 @@ MCP (Model Context Protocol) server for accessing Aruba email and calendar via I
 ### Email
 - 📧 **List emails** - Browse inbox with optional sender filtering
 - 🔍 **Search emails** - Search by subject/body with date filters
-- 📖 **Read emails** - Get full email content
+- 📖 **Read emails** - Get full email content (HTML converted to clean text)
 - ✉️ **Send emails** - Send emails via SMTP with custom formatting
+- 📎 **Attachments** - List and download email attachments (PDF, images, documents)
+- 💾 **Export .eml** - Export emails in RFC822 format for backup
 
 ### Calendar
 - 📅 **Create events** - Create calendar events with attendees
