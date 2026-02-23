@@ -1,6 +1,7 @@
 """MCP server for Aruba email and calendar access via IMAP and CalDAV."""
 
 import os
+import re
 import logging
 from typing import Any
 from datetime import datetime
@@ -21,8 +22,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Initialize MCP server
-mcp = FastMCP("aruba-email")
+# Initialize MCP server (host/port read here for SSE transport)
+_mcp_host = os.getenv("MCP_HOST", "127.0.0.1")
+_mcp_port = int(os.getenv("MCP_PORT", "8200"))
+mcp = FastMCP("aruba-email", host=_mcp_host, port=_mcp_port)
 
 # Email client configuration
 IMAP_CONFIG = {
@@ -232,6 +235,74 @@ def download_attachment(
 
 
 @mcp.tool()
+def save_attachment(
+    email_id: str,
+    attachment_index: int,
+    folder: str = "INBOX",
+    save_dir: str = "",
+) -> dict[str, Any]:
+    """Download an email attachment and save it directly to disk.
+
+    This is the PREFERRED tool for attachments — saves the file and returns
+    the local path so the user can open it immediately. No base64 decoding needed.
+
+    Args:
+        email_id: Email ID
+        attachment_index: Index of attachment (from get_email_attachments, starting at 0)
+        folder: Mail folder (default: INBOX)
+        save_dir: Directory to save into (default: user's Downloads folder)
+
+    Returns:
+        Dictionary with filename, saved_path, content_type, and size
+
+    Example:
+        save_attachment(email_id="123", attachment_index=0)
+    """
+    import base64
+    from pathlib import Path
+
+    try:
+        with _get_email_client() as client:
+            attachment = client.download_attachment(
+                email_id=email_id,
+                attachment_index=attachment_index,
+                folder=folder,
+            )
+
+        filename = attachment["filename"]
+        data = base64.b64decode(attachment["data_base64"])
+
+        # Determine save directory
+        if save_dir:
+            out_dir = Path(save_dir)
+        else:
+            out_dir = Path.home() / "Downloads"
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        # Avoid overwriting: add (1), (2), etc. if file exists
+        out_path = out_dir / filename
+        counter = 1
+        while out_path.exists():
+            stem = Path(filename).stem
+            suffix = Path(filename).suffix
+            out_path = out_dir / f"{stem} ({counter}){suffix}"
+            counter += 1
+
+        out_path.write_bytes(data)
+        logger.info("Saved attachment '%s' to %s", filename, out_path)
+
+        return {
+            "filename": filename,
+            "saved_path": str(out_path),
+            "content_type": attachment["content_type"],
+            "size": len(data),
+        }
+    except Exception as e:
+        logger.error("Error saving attachment: %s", e)
+        return {"error": str(e)}
+
+
+@mcp.tool()
 def get_raw_email(
     email_id: str,
     folder: str = "INBOX"
@@ -270,36 +341,44 @@ def send_email(
     subject: str,
     body: str,
     cc: str = None,
-    from_name: str = "Giacomo Fiorucci"
+    from_name: str = "",
+    attachments: str = "",
 ) -> dict[str, Any]:
-    """Send an email via SMTP.
-    
+    """Send a NEW email via SMTP (not a reply).
+
+    For replying to an existing email thread, use reply_email() instead.
+
     Args:
         to: Recipient email address
         subject: Email subject
         body: Email body (plain text)
         cc: Optional CC email addresses (comma-separated)
-        from_name: Sender display name (default: "Giacomo Fiorucci")
-    
+        from_name: Sender display name (default: "" — uses email address only)
+        attachments: Optional comma-separated file paths to attach
+                     (e.g., "/path/to/file.pdf,/path/to/image.png")
+
     Returns:
         Send status with details
-    
+
     Example:
         send_email(
             to="christopher.caponi@emotion-team.com",
             subject="Ciao Christopher!",
             body="Come stai? Ti scrivo per...",
-            from_name="Giacomo Fiorucci"
+            attachments="/path/to/documento.pdf"
         )
     """
     try:
+        attachment_list = [p.strip() for p in attachments.split(",") if p.strip()] if attachments else None
+
         with _get_email_client() as client:
             result = client.send_email(
                 to=to,
                 subject=subject,
                 body=body,
                 cc=cc,
-                from_name=from_name
+                from_name=from_name,
+                attachments=attachment_list,
             )
             logger.info(f"Sent email to {to}: {subject}")
             return result
@@ -309,12 +388,94 @@ def send_email(
 
 
 @mcp.tool()
+def reply_email(
+    email_id: str,
+    body: str,
+    cc: str = None,
+    folder: str = "INBOX",
+    attachments: str = "",
+) -> dict[str, Any]:
+    """Reply to an existing email, preserving the thread.
+
+    Fetches the original email, extracts threading headers (Message-ID,
+    References), and sends a reply that appears in the same conversation
+    thread in the recipient's mail client.
+
+    Args:
+        email_id: Email ID to reply to (from list_emails)
+        body: Reply body (plain text)
+        cc: Optional CC email addresses (comma-separated)
+        folder: Mail folder where the original email lives (default: INBOX)
+        attachments: Optional comma-separated file paths to attach
+                     (e.g., "/path/to/file.pdf,/path/to/image.png")
+
+    Returns:
+        Send status with details
+
+    Example:
+        reply_email(
+            email_id="123",
+            body="Thank you for your email, here is the updated proposal.",
+            attachments="/path/to/proposal.pdf"
+        )
+    """
+    try:
+        with _get_email_client() as client:
+            # Fetch original email to get threading headers
+            original = client.read_email(email_id, folder=folder)
+
+            orig_message_id = original.get("message_id", "")
+            orig_references = original.get("references", "")
+            orig_subject = original.get("subject", "")
+            orig_from = original.get("from", "")
+
+            # Build References header: existing chain + parent Message-ID
+            if orig_references and orig_message_id:
+                references = f"{orig_references} {orig_message_id}"
+            elif orig_message_id:
+                references = orig_message_id
+            else:
+                references = None
+
+            # Build subject with RE: prefix if not already present
+            if not re.match(r"(?i)^re\s*:", orig_subject):
+                subject = f"RE: {orig_subject}"
+            else:
+                subject = orig_subject
+
+            # Extract plain email address from "Name <email>" format
+            addr_match = re.search(r'<([^>]+)>', orig_from)
+            to = addr_match.group(1) if addr_match else orig_from
+
+            attachment_list = (
+                [p.strip() for p in attachments.split(",") if p.strip()]
+                if attachments
+                else None
+            )
+
+            result = client.send_email(
+                to=to,
+                subject=subject,
+                body=body,
+                cc=cc,
+                in_reply_to=orig_message_id or None,
+                references=references,
+                attachments=attachment_list,
+            )
+            logger.info(f"Replied to email {email_id} -> {to}: {subject}")
+            return result
+    except Exception as e:
+        logger.error(f"Error replying to email {email_id}: {e}")
+        return {"error": str(e), "status": "failed"}
+
+
+@mcp.tool()
 def check_bounced_emails(
     folder: str = "INBOX",
     limit: int = 20
 ) -> list[dict[str, Any]]:
     """Check for bounced or failed email delivery notifications.
-    
+
     This tool searches for delivery failure notifications (bounce-backs) that indicate
     emails could not be delivered. Common reasons include:
     - Recipient mailbox does not exist
@@ -716,10 +877,13 @@ def delete_calendar_event(event_uid: str) -> dict[str, Any]:
 
 def main():
     """Run the MCP server."""
+    import os
+    transport = os.getenv("MCP_TRANSPORT", "stdio")
     logger.info("Starting Aruba Email & Calendar MCP Server")
     logger.info(f"Email configured for: {IMAP_CONFIG['username']}@{IMAP_CONFIG['host']}")
     logger.info(f"Calendar configured for: {CALDAV_CONFIG['url']}")
-    mcp.run(transport='stdio')
+    logger.info(f"Transport: {transport}")
+    mcp.run(transport=transport)
 
 
 if __name__ == "__main__":

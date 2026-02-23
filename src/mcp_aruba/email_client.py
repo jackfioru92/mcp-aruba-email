@@ -7,6 +7,8 @@ import email.utils
 from email.header import decode_header
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 from typing import List, Dict, Optional
 from datetime import datetime
 import logging
@@ -191,8 +193,12 @@ class ArubaEmailClient:
         return {
             "from": self._decode_header(msg.get("From", "")),
             "to": self._decode_header(msg.get("To", "")),
+            "cc": self._decode_header(msg.get("Cc", "")),
             "subject": self._decode_header(msg.get("Subject", "")),
             "date": msg.get("Date", ""),
+            "message_id": msg.get("Message-ID", ""),
+            "in_reply_to": msg.get("In-Reply-To", ""),
+            "references": msg.get("References", ""),
             "body": body[:5000],  # Limit body to 5000 chars to avoid huge responses
             "attachments": attachments
         }
@@ -531,6 +537,31 @@ class ArubaEmailClient:
                 "verification_method": "error"
             }
 
+    @staticmethod
+    def _attach_files(msg: MIMEMultipart, attachments: List[str]):
+        """Attach local files to a MIME message."""
+        import os
+        import mimetypes
+
+        for filepath in attachments:
+            if not os.path.isfile(filepath):
+                raise FileNotFoundError(f"Attachment not found: {filepath}")
+
+            filename = os.path.basename(filepath)
+            content_type, _ = mimetypes.guess_type(filepath)
+            if content_type is None:
+                content_type = "application/octet-stream"
+
+            maintype, subtype = content_type.split("/", 1)
+
+            with open(filepath, "rb") as f:
+                part = MIMEBase(maintype, subtype)
+                part.set_payload(f.read())
+
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", "attachment", filename=filename)
+            msg.attach(part)
+
     def send_email(
         self,
         to: str,
@@ -539,9 +570,12 @@ class ArubaEmailClient:
         from_name: Optional[str] = None,
         cc: Optional[str] = None,
         save_to_sent: bool = True,
-        verify_recipient: bool = True,
+        verify_recipient: bool = False,
         use_signature: bool = True,
-        signature_name: str = "default"
+        signature_name: str = "default",
+        attachments: Optional[List[str]] = None,
+        in_reply_to: Optional[str] = None,
+        references: Optional[str] = None,
     ) -> Dict:
         """Send an email via SMTP.
         
@@ -586,32 +620,40 @@ class ArubaEmailClient:
                     if signature.strip().startswith('<'):
                         is_html_signature = True
                         # Convert plain body to HTML and append signature
-                        final_body = f"<div>{body.replace(chr(10), '<br>')}</div>{signature}"
+                        final_body = f'<div style="font-family: Roboto, Arial, sans-serif; font-size: 12pt; line-height: 1.5;">{body.replace(chr(10), "<br>")}</div>{signature}'
                     else:
                         final_body = f"{body}\n\n{signature}"
                     logger.debug(f"Appended signature '{signature_name}' to email (HTML: {is_html_signature})")
             
-            # Create message
-            msg = MIMEMultipart('alternative')
+            # Build body part (alternative: plain + optional HTML)
+            body_part = MIMEMultipart('alternative')
+            if is_html_signature:
+                body_part.attach(MIMEText(body, 'plain', 'utf-8'))
+                body_part.attach(MIMEText(final_body, 'html', 'utf-8'))
+            elif use_signature and not is_html_signature:
+                body_part.attach(MIMEText(final_body, 'plain', 'utf-8'))
+            else:
+                body_part.attach(MIMEText(body, 'plain', 'utf-8'))
+
+            # If attachments, wrap in mixed container; otherwise use body_part directly
+            if attachments:
+                msg = MIMEMultipart('mixed')
+                msg.attach(body_part)
+                self._attach_files(msg, attachments)
+            else:
+                msg = body_part
+
             msg['Subject'] = subject
             msg['From'] = f"{from_name} <{self.username}>" if from_name else self.username
             msg['To'] = to
             if cc:
                 msg['Cc'] = cc
             msg['Date'] = email.utils.formatdate(localtime=True)
-            
-            # Add plain text version
-            plain_part = MIMEText(body, 'plain', 'utf-8')
-            msg.attach(plain_part)
-            
-            # Add HTML version if signature is HTML
-            if is_html_signature:
-                html_part = MIMEText(final_body, 'html', 'utf-8')
-                msg.attach(html_part)
-            elif use_signature and not is_html_signature:
-                # Replace plain text part with version including signature
-                msg.set_payload([MIMEText(final_body, 'plain', 'utf-8')])
-            
+            if in_reply_to:
+                msg['In-Reply-To'] = in_reply_to
+            if references:
+                msg['References'] = references
+
             # Connect to SMTP server
             logger.info(f"Connecting to SMTP server {self.smtp_host}:{self.smtp_port}")
             with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port) as smtp:
