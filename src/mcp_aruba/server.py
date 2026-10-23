@@ -3,6 +3,7 @@
 import os
 import re
 import logging
+from contextvars import ContextVar
 from typing import Any
 from datetime import datetime
 from dotenv import load_dotenv
@@ -27,24 +28,63 @@ _mcp_host = os.getenv("MCP_HOST", "127.0.0.1")
 _mcp_port = int(os.getenv("MCP_PORT", "8200"))
 mcp = FastMCP("aruba-email", host=_mcp_host, port=_mcp_port)
 
+# EMAIL_USER / EMAIL_PASSWORD are the names declared in server.json and on the
+# registries; IMAP_USERNAME / IMAP_PASSWORD are the original ones. Both work.
+_ENV_USER = os.getenv("IMAP_USERNAME") or os.getenv("EMAIL_USER", "")
+_ENV_PASSWORD = os.getenv("IMAP_PASSWORD") or os.getenv("EMAIL_PASSWORD", "")
+
 # Email client configuration
 IMAP_CONFIG = {
     "host": os.getenv("IMAP_HOST", "imaps.aruba.it"),
     "port": int(os.getenv("IMAP_PORT", "993")),
-    "username": os.getenv("IMAP_USERNAME", ""),
-    "password": os.getenv("IMAP_PASSWORD", ""),
+    "username": _ENV_USER,
+    "password": _ENV_PASSWORD,
 }
 
 # Calendar client configuration
 CALDAV_CONFIG = {
     "url": os.getenv("CALDAV_URL", "https://syncdav.aruba.it/calendars/user@domain.com/"),
-    "username": os.getenv("CALDAV_USERNAME", os.getenv("IMAP_USERNAME", "")),
-    "password": os.getenv("CALDAV_PASSWORD", os.getenv("IMAP_PASSWORD", "")),
+    "username": os.getenv("CALDAV_USERNAME", _ENV_USER),
+    "password": os.getenv("CALDAV_PASSWORD", _ENV_PASSWORD),
 }
+
+# Hosted mode (see hosted.py): the credentials of the user making the call,
+# set for the duration of one request. None means local mode (env variables).
+# In hosted mode the Aruba hosts are fixed and the server's env is never used.
+_request_credentials: ContextVar[dict | None] = ContextVar("aruba_credentials", default=None)
+
+HOSTED_IMAP_HOST = "imaps.aruba.it"
+HOSTED_SMTP_HOST = "smtps.aruba.it"
+HOSTED_CALDAV_URL = "https://syncdav.aruba.it/calendars/{user}/"
+
+
+def _hosted() -> bool:
+    """True while serving a hosted request."""
+    return _request_credentials.get() is not None
+
+
+def _not_in_hosted(feature: str) -> str:
+    return (
+        f"{feature} is not available in the hosted version: it reads or writes files "
+        "on the server. Install the mcp-aruba package to use it on your own machine."
+    )
 
 
 def _get_email_client() -> ArubaEmailClient:
     """Create and return email client instance."""
+    creds = _request_credentials.get()
+    if creds is not None:
+        if not creds["user"] or not creds["password"]:
+            raise ValueError("Aruba credentials missing. Set EMAIL_USER and EMAIL_PASSWORD in your installation.")
+        return ArubaEmailClient(
+            host=HOSTED_IMAP_HOST,
+            port=993,
+            username=creds["user"],
+            password=creds["password"],
+            smtp_host=HOSTED_SMTP_HOST,
+            smtp_port=465,
+        )
+
     if not IMAP_CONFIG["username"] or not IMAP_CONFIG["password"]:
         raise ValueError("IMAP credentials not configured. Set IMAP_USERNAME and IMAP_PASSWORD environment variables.")
     
@@ -60,6 +100,16 @@ def _get_email_client() -> ArubaEmailClient:
 
 def _get_calendar_client() -> ArubaCalendarClient:
     """Create and return calendar client instance."""
+    creds = _request_credentials.get()
+    if creds is not None:
+        if not creds["user"] or not creds["password"]:
+            raise ValueError("Aruba credentials missing. Set EMAIL_USER and EMAIL_PASSWORD in your installation.")
+        return ArubaCalendarClient(
+            url=HOSTED_CALDAV_URL.format(user=creds["user"]),
+            username=creds["user"],
+            password=creds["password"],
+        )
+
     if not CALDAV_CONFIG["username"] or not CALDAV_CONFIG["password"]:
         raise ValueError("CalDAV credentials not configured. Set CALDAV_USERNAME and CALDAV_PASSWORD environment variables.")
     
@@ -261,6 +311,9 @@ def save_attachment(
     import base64
     from pathlib import Path
 
+    if _hosted():
+        return {"error": _not_in_hosted("save_attachment")}
+
     try:
         with _get_email_client() as client:
             attachment = client.download_attachment(
@@ -368,6 +421,9 @@ def send_email(
             attachments="/path/to/documento.pdf"
         )
     """
+    if _hosted() and attachments:
+        return {"error": _not_in_hosted("Attaching local files"), "status": "failed"}
+
     try:
         attachment_list = [p.strip() for p in attachments.split(",") if p.strip()] if attachments else None
 
@@ -379,6 +435,7 @@ def send_email(
                 cc=cc,
                 from_name=from_name,
                 attachments=attachment_list,
+                use_signature=not _hosted(),
             )
             logger.info(f"Sent email to {to}: {subject}")
             return result
@@ -419,6 +476,9 @@ def reply_email(
             attachments="/path/to/proposal.pdf"
         )
     """
+    if _hosted() and attachments:
+        return {"error": _not_in_hosted("Attaching local files"), "status": "failed"}
+
     try:
         with _get_email_client() as client:
             # Fetch original email to get threading headers
@@ -461,6 +521,7 @@ def reply_email(
                 in_reply_to=orig_message_id or None,
                 references=references,
                 attachments=attachment_list,
+                use_signature=not _hosted(),
             )
             logger.info(f"Replied to email {email_id} -> {to}: {subject}")
             return result
@@ -558,6 +619,9 @@ def set_email_signature(
             style="professional"
         )
     """
+    if _hosted():
+        return {"error": _not_in_hosted("Email signatures")}
+
     try:
         from .signature import create_default_signature, save_signature
         
@@ -598,6 +662,9 @@ def get_email_signature(signature_name: str = "default") -> dict[str, Any]:
     Example:
         get_email_signature()
     """
+    if _hosted():
+        return {"error": _not_in_hosted("Email signatures")}
+
     try:
         from .signature import get_signature
         
@@ -627,6 +694,9 @@ def list_email_signatures() -> dict[str, Any]:
     Example:
         list_email_signatures()
     """
+    if _hosted():
+        return {"error": _not_in_hosted("Email signatures")}
+
     try:
         from .signature import list_signatures
         

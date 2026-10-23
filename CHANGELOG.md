@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-10-23
+
+### Fixed
+- `mcp` pinned below 2: with mcp 2.x installed (the default since its release) the server failed at import, because `FastMCP` was renamed.
+- `EMAIL_USER` / `EMAIL_PASSWORD`, the names declared in `server.json`, are now read too (only `IMAP_USERNAME` / `IMAP_PASSWORD` were).
+
+### Added
+- Hosted mode (`mcp-aruba-hosted`): streamable HTTP behind the mcprush gateway. Every call must carry the mcprush token; the user's credentials arrive in `X-Env-EMAIL-USER` / `X-Env-EMAIL-PASSWORD`, live only for that request and are never stored or logged. Aruba hosts are fixed. Tools that read or write files on the server (local attachments, `save_attachment`, signatures) answer with an error; results are cut to fit the gateway's 256 KiB limit.
+
 ## [Unreleased]
 
 ## [0.3.0] - 2026-02-18
