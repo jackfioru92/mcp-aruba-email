@@ -237,3 +237,18 @@ def test_fit_says_how_many_items_were_left_out():
 
 def test_cut_never_splits_a_character():
     assert hosted._cut("èèè", 3) == "è"
+
+
+def test_local_calendar_url_defaults_to_the_user(monkeypatch):
+    import importlib
+    monkeypatch.delenv("CALDAV_URL", raising=False)
+    monkeypatch.delenv("IMAP_USERNAME", raising=False)
+    monkeypatch.setenv("EMAIL_USER", "anna@studio.it")
+    monkeypatch.setenv("EMAIL_PASSWORD", "pw")
+    fresh = importlib.reload(server)
+    try:
+        assert fresh.CALDAV_CONFIG["url"] == "https://syncdav.aruba.it/calendars/anna@studio.it/"
+        assert fresh.IMAP_CONFIG["username"] == "anna@studio.it"
+    finally:
+        monkeypatch.undo()
+        importlib.reload(server)

@@ -41,9 +41,10 @@ IMAP_CONFIG = {
     "password": _ENV_PASSWORD,
 }
 
-# Calendar client configuration
+# Calendar client configuration. Without CALDAV_URL the Aruba address is built
+# from the user, as the listings no longer ask for it.
 CALDAV_CONFIG = {
-    "url": os.getenv("CALDAV_URL", "https://syncdav.aruba.it/calendars/user@domain.com/"),
+    "url": os.getenv("CALDAV_URL") or f"https://syncdav.aruba.it/calendars/{_ENV_USER or 'user@domain.com'}/",
     "username": os.getenv("CALDAV_USERNAME", _ENV_USER),
     "password": os.getenv("CALDAV_PASSWORD", _ENV_PASSWORD),
 }
