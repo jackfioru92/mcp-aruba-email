@@ -34,7 +34,7 @@ Per usare con `@mcp aruba` in VS Code o altri client MCP:
 2. In VS Code Copilot Chat, digita `@mcp aruba` e segui le istruzioni
 3. Oppure installa da CLI: `smithery install io.github.jackfioru92/aruba-email`
 
-[![Smithery](https://smithery.ai/badge/io.github.jackfioru92/aruba-email)](https://smithery.ai/server/io.github.jackfioru92/aruba-email)
+[![LightNow capabilities](https://lightnow.ai/badge/io.github.jackfioru92/aruba-email)](https://lightnow.ai/servers/io.github.jackfioru92/aruba-email)
 
 ### Opzione 3: Installazione Manuale (Per Claude Desktop)
 
