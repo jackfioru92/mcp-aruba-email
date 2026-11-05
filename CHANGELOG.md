@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Attachment indices were inconsistent: `get_email_attachments` returned the absolute MIME part index while `download_attachment` / `save_attachment` expected an attachment-relative one, so the indices returned by the former were rejected by the latter. Both now share a single enumeration (`_iter_attachments`).
+- `message/rfc822` attachments (e.g. the `postacert.eml` embedded in a PEC message) could not be downloaded: `get_payload(decode=True)` is `None` for these parts, which reported `size: 0` in listings and raised `NoneType has no len()` on download. They are now serialized and downloadable.
+
 ## [0.3.0] - 2026-02-18
 
 ### Added

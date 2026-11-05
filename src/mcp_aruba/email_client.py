@@ -106,39 +106,61 @@ class ArubaEmailClient:
                 decoded_parts.append(str(part))
         return ''.join(decoded_parts)
 
+    @staticmethod
+    def _part_bytes(part) -> bytes:
+        """Return the raw bytes of a MIME part.
+
+        ``get_payload(decode=True)`` returns ``None`` for container parts such
+        as ``message/rfc822`` (e.g. the ``postacert.eml`` embedded in a PEC
+        message), so fall back to serializing the contained message.
+        """
+        data = part.get_payload(decode=True)
+        if data is not None:
+            return data
+        payload = part.get_payload()
+        if isinstance(payload, list) and payload:
+            return payload[0].as_bytes()
+        if isinstance(payload, str):
+            return payload.encode("utf-8", errors="replace")
+        return b""
+
+    def _iter_attachments(self, msg):
+        """Yield ``(filename, content_type, data)`` for each attachment part.
+
+        Single source of truth for attachment enumeration: both
+        ``get_email_attachments`` and ``download_attachment`` rely on it, so
+        the index returned by the former is always valid for the latter.
+        """
+        if not msg.is_multipart():
+            return
+        for part in msg.walk():
+            content_disposition = str(part.get("Content-Disposition", ""))
+            if "attachment" not in content_disposition and "inline" not in content_disposition:
+                continue
+            filename = part.get_filename()
+            if not filename:
+                continue
+            yield self._decode_header(filename), part.get_content_type(), self._part_bytes(part)
+
     def _extract_attachments_info(self, msg) -> List[Dict]:
         """Extract attachment information from email message.
-        
+
         Args:
             msg: Email message object
-            
+
         Returns:
-            List of attachment info dictionaries
+            List of attachment info dictionaries, ``index`` being the
+            attachment-relative position (same used by ``download_attachment``).
         """
-        attachments = []
-        
-        if not msg.is_multipart():
-            return attachments
-        
-        for idx, part in enumerate(msg.walk()):
-            content_disposition = str(part.get("Content-Disposition", ""))
-            
-            # Check if this part is an attachment
-            if "attachment" in content_disposition or "inline" in content_disposition:
-                filename = part.get_filename()
-                if filename:
-                    filename = self._decode_header(filename)
-                    content_type = part.get_content_type()
-                    size = len(part.get_payload(decode=True) or b"")
-                    
-                    attachments.append({
-                        "index": idx,
-                        "filename": filename,
-                        "content_type": content_type,
-                        "size": size
-                    })
-        
-        return attachments
+        return [
+            {
+                "index": idx,
+                "filename": filename,
+                "content_type": content_type,
+                "size": len(data),
+            }
+            for idx, (filename, content_type, data) in enumerate(self._iter_attachments(msg))
+        ]
 
     def _parse_email(self, email_data: bytes) -> Dict:
         """Parse email data into structured format.
@@ -340,22 +362,14 @@ class ArubaEmailClient:
             if not msg.is_multipart():
                 raise Exception("Email has no attachments")
             
-            current_idx = 0
-            for part in msg.walk():
-                content_disposition = str(part.get("Content-Disposition", ""))
-                
-                if "attachment" in content_disposition or "inline" in content_disposition:
-                    filename = part.get_filename()
-                    if filename:
-                        if current_idx == attachment_index:
-                            data = part.get_payload(decode=True)
-                            return {
-                                "filename": self._decode_header(filename),
-                                "content_type": part.get_content_type(),
-                                "size": len(data),
-                                "data_base64": base64.b64encode(data).decode('utf-8')
-                            }
-                        current_idx += 1
+            for idx, (filename, content_type, data) in enumerate(self._iter_attachments(msg)):
+                if idx == attachment_index:
+                    return {
+                        "filename": filename,
+                        "content_type": content_type,
+                        "size": len(data),
+                        "data_base64": base64.b64encode(data).decode('utf-8')
+                    }
             
             raise Exception(f"Attachment index {attachment_index} not found")
             
